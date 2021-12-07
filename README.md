@@ -68,7 +68,7 @@ It is also possible to use a remote auth backend, either directly accessible via
 
 ## Run the RATT Application
 
-The `ratt-devhost.ini` config file contains appropriate settings to allow the app to run on the development host with simulated I/O, RFID, and diagnostics display output.
+The `conf/ratt-devhost.ini-example` example config file contains appropriate settings to allow the app to run on the development host with simulated I/O, RFID, and diagnostics display output.  The example should be copied to `ratt-devhost.ini` and modified to suit your specific environment.
 
     cd ~/ratt/firmware/rpi/app
-    python3 ./main.py --ini ./ratt-devhost.ini
+    python3 ./main.py --ini ./conf/ratt-devhost.ini
