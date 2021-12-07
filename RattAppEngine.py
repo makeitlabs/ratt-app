@@ -107,7 +107,7 @@ class RattAppEngine(QQmlApplicationEngine):
 
         # begin executing the personality state machine
         self.personality.execute()
-        self.load("main.qml")
+        self.load("gui/main.qml")
 
 
     @pyqtSlot()
