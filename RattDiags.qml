@@ -443,15 +443,18 @@ Item {
                       font.pixelSize: 8
                       text: "Hash: " + acl.hash
                   }
-                  Button {
-                      text: "Download"
-                      onClicked: {
-                        acl.setWhy('diag')
-                        acl.download()
-                      }
-                  }
 
                   Item { Layout.fillHeight: true }
+              }
+              Button {
+                  text: "Download"
+                  anchors.bottom: parent.bottom
+                  anchors.right: parent.right
+                  anchors.margins: 10
+                  onClicked: {
+                    acl.setWhy('diag')
+                    acl.download()
+                  }
               }
           }
 
