@@ -38,6 +38,7 @@
 #
 
 import sys
+import signal
 from PyQt5.QtGui import QGuiApplication, QFont
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QUrl
 from RattAppEngine import RattAppEngine
@@ -48,6 +49,7 @@ class MainApp(QObject):
     engine = None
 
     def __init__(self):
+        signal.signal(signal.SIGINT, self.sigint_handler)
         QObject.__init__(self)
         self.enableBacklight()
         self.createApp()
@@ -84,6 +86,10 @@ class MainApp(QObject):
             #self.engine.load(QUrl('main.qml'))
             self.engine.exit.connect(self.exit)
 
+    def sigint_handler(self, sig, frame):
+        print('Caught SIGINT, exiting.')
+        self.engine.exit.emit(100)
+
     @pyqtSlot(int)
     def exit(self, exitCode):
         print("exit, code=", exitCode)
@@ -97,6 +103,7 @@ class MainApp(QObject):
     def cleanup(self):
         del self.engine
         del self.app
+
 
 
 if __name__ == '__main__':
