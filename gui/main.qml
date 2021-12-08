@@ -300,4 +300,29 @@ ApplicationWindow {
             }
         }
     }
+
+    Label {
+      id: mver
+      width: 150
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.margins: 5
+      font.family: "mono"
+      font.weight: Font.Bold
+      font.pixelSize: 14
+      color: "#00ffff"
+      text: "Mender Artifact=" + menderArtifact
+    }
+    Label {
+      id: aver
+      width: 150
+      anchors.top: mver.bottom
+      anchors.left: parent.left
+      anchors.margins: 5
+      font.family: "mono"
+      font.weight: Font.Bold
+      font.pixelSize: 14
+      color: "#ffff00"
+      text: "App Version=" + appVersion
+    }
 }
