@@ -498,7 +498,7 @@ View {
 
         Label {
             Layout.fillWidth: true
-            text: "BASE IMAGE"
+            text: "MENDER ARTIFACT"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
             font.weight: Font.DemiBold
@@ -508,7 +508,24 @@ View {
             Layout.fillWidth: true
             text: menderArtifact
             horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 11
+            font.pixelSize: 10
+            font.weight: Font.Normal
+            color: "#000099"
+        }
+        Label {
+            Layout.fillWidth: true
+            text: "APP VERSION"
+            horizontalAlignment: Text.AlignHCenter
+            font.pixelSize: 9
+            font.weight: Font.DemiBold
+            color: "#444444"
+            wrapMode: Text.Wrap
+        }
+        Label {
+            Layout.fillWidth: true
+            text: appVersion
+            horizontalAlignment: Text.AlignHCenter
+            font.pixelSize: 10
             font.weight: Font.Normal
             color: "#000099"
         }

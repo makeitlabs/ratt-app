@@ -83,7 +83,6 @@ class MainApp(QObject):
         if not self.engine:
             print("creating engine")
             self.engine = RattAppEngine()
-            #self.engine.load(QUrl('main.qml'))
             self.engine.exit.connect(self.exit)
 
     def sigint_handler(self, sig, frame):
@@ -95,7 +94,7 @@ class MainApp(QObject):
         print("exit, code=", exitCode)
         if exitCode == 2 and self.engine:
             print("reloading qml")
-            self.engine.load(QUrl('main.qml'))
+            self.engine.load(QUrl('gui/main.qml'))
 
     def run(self):
         return self.app.exec_()

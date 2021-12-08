@@ -64,6 +64,9 @@ class RattAppEngine(QQmlApplicationEngine):
         # Name of the Mender artifact
         self.mender_artifact = 'unknown'
 
+        # Name of the app version
+        self.app_version = 'unknown'
+
         # load the config
         self.config = RattConfig(inifile=args.inifile, loglevel='DEBUG')
 
@@ -92,6 +95,7 @@ class RattAppEngine(QQmlApplicationEngine):
             self.rootContext().setContextProperty("rfid", self._rfid)
             self.rootContext().setContextProperty("mqtt", self.mqtt)
             self.rootContext().setContextProperty("menderArtifact", self.mender_artifact)
+            self.rootContext().setContextProperty("appVersion", self.app_version)
 
         self.rootContext().setContextProperty("personality", self.personality)
 
@@ -176,6 +180,16 @@ class RattAppEngine(QQmlApplicationEngine):
                     (k,v) = line.split('=')
                     if k == 'artifact_name':
                         self.mender_artifact = v
+                        self.logger.info('Mender artifact is %s' % self.mender_artifact)
+        except:
+            pass
+
+
+        try:
+            with open('./version_info') as f:
+                for line in f:
+                    self.app_version = line
+                    self.logger.info('App version is %s' % self.app_version)
         except:
             pass
 
