@@ -335,13 +335,15 @@ class Personality(PersonalityBase):
     #############################################
     def stateAccessDenied(self):
         if self.phENTER:
-            self.telemetryEvent.emit('personality/login', json.dumps({'allowed': False, 'member': self.activeMemberRecord.name}))
             self.pin_led2.set(HIGH)
             return self.goActive()
 
         elif self.phACTIVE:
             if self.wakereason == self.REASON_UI:
-                if self.uievent == 'AccessDone' or self.uievent == 'PasswordIncorrect':
+                if self.uievent == 'AccessDone':
+                    self.telemetryEvent.emit('personality/login', json.dumps({'allowed': False, 'member': self.activeMemberRecord.name}))
+                    return self.exitAndGoto(self.STATE_IDLE)
+                elif self.uievent == 'PasswordIncorrect':
                     self.telemetryEvent.emit('personality/login', json.dumps({'allowed': False, 'member': self.activeMemberRecord.name, 'usedPassword': True}))
                     return self.exitAndGoto(self.STATE_IDLE)
                 if self.uievent == 'PasswordCorrect':
