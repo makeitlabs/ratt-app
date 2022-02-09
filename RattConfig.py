@@ -200,6 +200,10 @@ class RattConfig(QObject):
         return self.config['Personality.TimeoutWarningSeconds']
 
     @pyqtProperty(bool, notify=configChanged)
+    def Personality_MonitorEstopEnabled(self):
+        return self.config['Personality.MonitorEstopEnabled']
+
+    @pyqtProperty(bool, notify=configChanged)
     def Personality_SafetyCheckEnabled(self):
         return self.config['Personality.SafetyCheckEnabled']
 
@@ -337,6 +341,10 @@ class RattConfig(QObject):
         return self.config['Sound.HomingOverride']
 
     @pyqtProperty(str, notify=configChanged)
+    def Sound_EnableEstop(self):
+        return self.config['Sound.EnableEstop']
+
+    @pyqtProperty(str, notify=configChanged)
     def Issues_Count(self):
         return len(self.parser.items('Issues'))
 
@@ -422,6 +430,7 @@ class RattConfig(QObject):
         self.addConfigInt('Personality', 'TimeoutSeconds', 300)
         self.addConfigInt('Personality', 'AdminTimeoutSeconds', 600)
         self.addConfigInt('Personality', 'TimeoutWarningSeconds', 30)
+        self.addConfigBool('Personality', 'MonitorEstopEnabled', False)
         self.addConfigBool('Personality', 'SafetyCheckEnabled', False)
         self.addConfigBool('Personality', 'MonitorToolPowerEnabled', False)
         self.addConfigBool('Personality', 'HomingManualOverrideEnabled', False)
@@ -488,6 +497,7 @@ class RattConfig(QObject):
         self.addConfig('Sound', 'HomingInstructions', '')
         self.addConfig('Sound', 'HomingWarning', '')
         self.addConfig('Sound', 'HomingOverride', '')
+        self.addConfig('Sound', 'EnableEstop', '')
 
         self.addSection('Issues')
         for i in self.parser.items('Issues'):

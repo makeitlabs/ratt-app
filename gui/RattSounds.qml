@@ -57,7 +57,8 @@ Item {
     property alias homingInstructionsAudio: homingInstructionsAudio
     property alias homingWarningAudio: homingWarningAudio
     property alias homingOverrideAudio: homingOverrideAudio
-
+    property alias enableEstopAudio: enableEstopAudio
+    
     Component.onCompleted: {
       if (config.Sound_EnableSilenceLoop) {
         // play silence continually in background to work around the click/pop issue
@@ -136,5 +137,9 @@ Item {
     SoundEffect {
         id: homingOverrideAudio
         source: config.Sound_HomingOverride
+    }
+    SoundEffect {
+        id: enableEstopAudio
+        source: config.Sound_EnableEstop
     }
 }

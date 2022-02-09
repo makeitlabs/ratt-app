@@ -116,6 +116,9 @@ ApplicationWindow {
                 case "HomingOverride":
                     switchTo(viewHomingOverride);
                     break;
+                case "WaitEstopActive":
+                    switchTo(viewWaitEstopActive);
+                    break;
                 case "SafetyCheck":
                     switchTo(viewSafetyCheck);
                     break;
@@ -125,7 +128,11 @@ ApplicationWindow {
                 case "ToolEnabledInactive":
                 case "ToolEnabledActive":
                 case "ToolEnabledNotPowered":
+                case "ToolEnabledEmergencyStop":
                     switchTo(viewEnabled);
+                    break;
+                case "ToolEmergencyStop":
+                    switchTo(viewEmergencyStop);
                     break;
                 case "PowerLoss":
                     switchTo(viewPowerLoss);
@@ -257,6 +264,10 @@ ApplicationWindow {
                     id: viewHomingOverride
                     visible: false
                 }
+                ViewWaitEstopActive {
+                    id: viewWaitEstopActive
+                    visible: false
+                }
                 ViewSafetyCheck {
                     id: viewSafetyCheck
                     visible: false
@@ -269,7 +280,10 @@ ApplicationWindow {
                     id: viewEnabled
                     visible: false
                 }
-
+                ViewEmergencyStop {
+                    id: viewEmergencyStop
+                    visible: false
+                }
                 ViewIssue {
                     id: viewIssue
                     visible: false

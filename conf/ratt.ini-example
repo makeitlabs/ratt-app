@@ -75,6 +75,10 @@ AdminTimeoutSeconds=60
 ; Audibly warn about impending timeout with this many seconds remaining
 TimeoutWarningSeconds=15
 
+; MonitorEstopEnabled=[True|False] - default=False
+; Wait for E-Stop loop to go active after activating tool (for tools that require manual start/reset button)
+; MonitorEstopEnabled=True
+
 ; SafetyCheckEnabled=[True|False] - default=False
 ; Check for tool activity immediately after activating tool, and warn user if detected
 ; SafetyCheckEnabled=True
@@ -352,3 +356,8 @@ HomingWarning=audio/homing_warning.wav
 ; Path to audio file played when user overrides homing manually or automatically (e.g. with rotary)
 ; Only used for LaserCutter personality
 HomingOverride=audio/homing_override.wav
+
+; EnableEstop=<wavfile>
+; Path to audio file played to inform user to disengage e-stops and press reset
+; Only used when WaitEstopActiveEnabled=True
+EnableEstop=audio/enable_estop.wav

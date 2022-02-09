@@ -64,11 +64,14 @@ class Personality(PersonalityBase):
     STATE_ACCESS_ALLOWED = 'AccessAllowed'
     STATE_ACCESS_ALLOWED_PASSWORD = 'AccessAllowedPassword'
     STATE_RFID_ERROR = 'RFIDError'
+    STATE_WAIT_ESTOP_ACTIVE = 'WaitEstopActive'
     STATE_SAFETY_CHECK = 'SafetyCheck'
     STATE_SAFETY_CHECK_PASSED = 'SafetyCheckPassed'
     STATE_SAFETY_CHECK_FAILED = 'SafetyCheckFailed'
     STATE_TOOL_ENABLED_INACTIVE = 'ToolEnabledInactive'
     STATE_TOOL_ENABLED_ACTIVE = 'ToolEnabledActive'
+    STATE_TOOL_ENABLED_EMERGENCY_STOP = 'ToolEnabledEmergencyStop'
+    STATE_TOOL_EMERGENCY_STOP = 'ToolEmergencyStop'
     STATE_TOOL_ENABLED_NOT_POWERED = 'ToolEnabledNotPowered'
     STATE_TOOL_TIMEOUT_WARNING = 'ToolTimeoutWarning'
     STATE_TOOL_TIMEOUT = 'ToolTimeout'
@@ -104,6 +107,7 @@ class Personality(PersonalityBase):
                        self.STATE_ACCESS_ALLOWED : self.stateAccessAllowed,
                        self.STATE_ACCESS_ALLOWED_PASSWORD : self.stateAccessAllowedPassword,
                        self.STATE_RFID_ERROR : self.stateRFIDError,
+                       self.STATE_WAIT_ESTOP_ACTIVE : self.stateWaitEstopActive,
                        self.STATE_SAFETY_CHECK : self.stateSafetyCheck,
                        self.STATE_SAFETY_CHECK_PASSED : self.stateSafetyCheckPassed,
                        self.STATE_SAFETY_CHECK_FAILED : self.stateSafetyCheckFailed,
@@ -111,6 +115,8 @@ class Personality(PersonalityBase):
                        self.STATE_TOOL_ENABLED_ACTIVE : self.stateToolEnabledActive,
                        self.STATE_TOOL_TIMEOUT_WARNING : self.stateToolTimeoutWarning,
                        self.STATE_TOOL_TIMEOUT : self.stateToolTimeout,
+                       self.STATE_TOOL_ENABLED_EMERGENCY_STOP : self.stateToolEnabledEmergencyStop,
+                       self.STATE_TOOL_EMERGENCY_STOP : self.stateToolEmergencyStop,
                        self.STATE_TOOL_ENABLED_NOT_POWERED : self.stateToolEnabledNotPowered,
                        self.STATE_TOOL_DISABLED : self.stateToolDisabled,
                        self.STATE_IDLE_BUSY : self.stateIdleBusy,
@@ -130,6 +136,7 @@ class Personality(PersonalityBase):
 
         self._toolActiveFlag = False
 
+        self._monitorEstop =  self.app.config.value('Personality.MonitorEstopEnabled')
         self._performSafetyCheck =  self.app.config.value('Personality.SafetyCheckEnabled')
         self._monitorToolPower = self.app.config.value('Personality.MonitorToolPowerEnabled')
 
@@ -160,6 +167,10 @@ class Personality(PersonalityBase):
     # returns true if the tool is currently powered up
     def toolPowered(self):
         return (self.pins_in[1].get() == 0)
+
+    # returns true if the tool's E-Stop loop is latched and ready
+    def toolEstopEnabled(self):
+        return (self.pins_in[3].get() == 0)
 
     @pyqtProperty(bool, notify=endorsementsChanged)
     def hasAdvancedEndorsement(self):
@@ -368,7 +379,9 @@ class Personality(PersonalityBase):
 
         elif self.phACTIVE:
             if self.wakereason == self.REASON_UI and self.uievent == 'AccessDone':
-                if self._performSafetyCheck:
+                if self._monitorEstop:
+                    return self.goto(self.STATE_WAIT_ESTOP_ACTIVE)
+                elif self._performSafetyCheck:
                     return self.exitAndGoto(self.STATE_SAFETY_CHECK)
                 else:
                     self.enableTool()
@@ -386,17 +399,50 @@ class Personality(PersonalityBase):
     def stateAccessAllowedPassword(self):
         self.telemetryEvent.emit('personality/login', json.dumps({'allowed': True, 'member': self.activeMemberRecord.name, 'usedPassword': True}))
         self.activeMemberRecord.loggedIn = True
-        if self._performSafetyCheck:
+        if self._monitorEstop:
+            return self.goto(self.STATE_WAIT_ESTOP_ACTIVE)
+        elif self._performSafetyCheck:
             return self.goto(self.STATE_SAFETY_CHECK)
         else:
             self.enableTool()
             return self.goto(self.STATE_TOOL_ENABLED_INACTIVE)
 
     #############################################
+    ## STATE_WAIT_ESTOP_ACTIVE
+    #############################################
+    def stateWaitEstopActive(self):
+        if self.phENTER:
+            self.enableTool()
+            self.pin_led1.set(HIGH)
+            return self.goActive()
+
+        elif self.phACTIVE:
+            if self.toolEstopEnabled():
+                if self._performSafetyCheck:
+                    return self.goto(self.STATE_SAFETY_CHECK)
+                else:
+                    self.enableTool()
+                    return self.goto(self.STATE_TOOL_ENABLED_INACTIVE)
+
+            if self.wakereason == self.REASON_UI and self.uievent == 'WaitEstopTimeout':
+                self.disableTool()
+                return self.exitAndGoto(self.STATE_IDLE)
+
+            return False
+
+        elif self.phEXIT:
+            self.wakeOnTimer(enabled=False)
+            self.pin_led1.set(LOW)
+            return self.goNextState()
+
+
+
+    #############################################
     ## STATE_SAFETY_CHECK
     #############################################
     def stateSafetyCheck(self):
         if self.phENTER:
+            # check for no tool activity for the interval of this timer
             self.wakeOnTimer(enabled=True, interval=1500, singleShot=True)
             self.enableTool()
             self.pin_led1.set(HIGH)
@@ -468,6 +514,9 @@ class Personality(PersonalityBase):
             if self._monitorToolPower and not self.toolPowered():
                 return self.exitAndGoto(self.STATE_TOOL_ENABLED_NOT_POWERED)
 
+            if self._monitorEstop and not self.toolEstopEnabled():
+                return self.exitAndGoto(self.STATE_TOOL_ENABLED_EMERGENCY_STOP)
+
             return False
 
         elif self.phEXIT:
@@ -494,11 +543,50 @@ class Personality(PersonalityBase):
             if self._monitorToolPower and not self.toolPowered():
                 return self.exitAndGoto(self.STATE_TOOL_ENABLED_NOT_POWERED)
 
+            if self._monitorEstop and not self.toolEstopEnabled():
+                return self.exitAndGoto(self.STATE_TOOL_ENABLED_EMERGENCY_STOP)
+
             return False
 
         elif self.phEXIT:
             self.pin_led1.set(LOW)
             return self.goNextState()
+
+    #############################################
+    ## STATE_TOOL_ENABLED_EMERGENCY_STOP
+    #############################################
+    def stateToolEnabledEmergencyStop(self):
+        if self.phENTER:
+            self.disableTool()
+            return self.goActive()
+
+        elif self.phACTIVE:
+            if self.wakereason == self.REASON_UI and self.uievent == 'ToolEnabledDone':
+                return self.exitAndGoto(self.STATE_TOOL_EMERGENCY_STOP)
+
+            return False
+
+        elif self.phEXIT:
+            return self.goNextState()
+
+    #############################################
+    ## STATE_TOOL_EMERGENCY_STOP
+    #############################################
+    def stateToolEmergencyStop(self):
+        if self.phENTER:
+            self.disableTool()
+            return self.goActive()
+
+        elif self.phACTIVE:
+            if self.wakereason == self.REASON_UI and self.uievent == 'ToolEmergencyStopDone':
+                return self.exitAndGoto(self.STATE_IDLE)
+
+            return False
+
+        elif self.phEXIT:
+            return self.goNextState()
+
+
 
     #############################################
     ## STATE_TOOL_ENABLED_NOT_POWERED

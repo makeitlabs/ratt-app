@@ -74,12 +74,17 @@ View {
             var curState = personality.currentState;
             var sp = curState.split(".");
 
+
             if (sp.length >= 2) {
                 var state = sp[0];
                 var phase = sp[1];
 
+                console.warn("state=", state);
+
                 if (state == "ToolEnabledNotPowered") {
                   done('toolpower');
+                } else if (state == "ToolEnabledEmergencyStop") {
+                  done('emergencystop');
                 }
             }
         }
@@ -101,7 +106,7 @@ View {
         idleTimeoutSecs = config.Personality_AdminTimeoutSeconds;
       } else {
         idleTimeoutSecs = config.Personality_TimeoutSeconds;
-      } 
+      }
       idleSecs = idleTimeoutSecs;
       updateTime();
 
