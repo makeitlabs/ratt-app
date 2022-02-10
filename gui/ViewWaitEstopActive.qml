@@ -37,6 +37,7 @@
 import QtQuick 2.6
 import QtQuick.Controls 1.4
 import QtQuick.Layouts 1.3
+import QtGraphicalEffects 1.0
 
 View {
     id: root
@@ -44,6 +45,7 @@ View {
     color: "#444444"
 
     function _show() {
+        sound.generalAlertAudio.play();
         waitTimer.start();
         audioHelperTimer.start();
     }
@@ -89,31 +91,108 @@ View {
         }
     }
 
+    SequentialAnimation {
+        running: true
+        loops: Animation.Infinite
+        PropertyAnimation {
+            target: item1
+            property: "opacity"
+            from: 1.0
+            to: 0
+            duration: 10
+        }
+        PropertyAnimation {
+            target: item2
+            property: "opacity"
+            from: 1.0
+            to: 0
+            duration: 10
+        }
+        PauseAnimation {
+            duration: 500
+        }
+        PropertyAnimation {
+            target: item1
+            property: "opacity"
+            from: 0
+            to: 1.0
+            duration: 10
+        }
+        PropertyAnimation {
+            target: item2
+            property: "opacity"
+            from: 0
+            to: 1.0
+            duration: 10
+        }
+        PauseAnimation {
+            duration: 500
+        }
+    }
+
+
     ColumnLayout {
         anchors.fill: parent
-        Label {
-            Layout.fillWidth: true
-            text: "DISENGAGE"
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 24
-            font.weight: Font.Bold
-            color: "#FF3300"
+        Item {
+          id: item1
+          Layout.fillWidth: true
+          Layout.preferredHeight: 28
+          Label {
+              id: label1
+              width: parent.width
+              text: "DISENGAGE"
+              horizontalAlignment: Text.AlignHCenter
+              font.pixelSize: 26
+              font.weight: Font.Bold
+              color: "#FF3300"
+          }
+          Glow {
+            anchors.fill: label1
+            source: label1
+            radius: 4
+            color: "black"
+          }
         }
-        Label {
-            Layout.fillWidth: true
-            text: "E-STOP"
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 24
-            font.weight: Font.Bold
-            color: "#FF3300"
+
+        Item {
+          id: item2
+          Layout.fillWidth: true
+          Layout.preferredHeight: 26
+          Label {
+              id: label2
+              width: parent.width
+              text: "E-STOP"
+              horizontalAlignment: Text.AlignHCenter
+              font.pixelSize: 24
+              font.weight: Font.Bold
+              color: "#FF3300"
+          }
+          Glow {
+            anchors.fill: label2
+            source: label2
+            radius: 4
+            color: "black"
+          }
         }
-        Label {
-            Layout.fillWidth: true
-            text: "THEN PRESS RESET"
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 16
-            font.weight: Font.DemiBold
-            color: "#FFFF00"
+
+        Item {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 16
+          Label {
+              id: label3
+              width: parent.width
+              text: "THEN PRESS RESET"
+              horizontalAlignment: Text.AlignHCenter
+              font.pixelSize: 16
+              font.weight: Font.Bold
+              color: "#FFFF00"
+          }
+          Glow {
+            anchors.fill: label3
+            source: label3
+            radius: 1
+            color: "black"
+          }
         }
     }
 }

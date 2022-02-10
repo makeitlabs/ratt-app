@@ -172,8 +172,9 @@ View {
 
 
     function done(reason) {
-        sound.disableAudio.play();
-        // TODO emit a telemetry event instead
+        if (reason != 'emergencystop') {
+          sound.disableAudio.play();
+        }
 
         var jo = {reason: reason,
                   member: activeMemberRecord.name,
