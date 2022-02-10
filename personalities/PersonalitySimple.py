@@ -202,6 +202,13 @@ class Personality(PersonalityBase):
     ## STATE_INIT
     #############################################
     def stateInit(self):
+        self.telemetryEvent.emit('system/boot', json.dumps(
+            {   'fw_name': 'ratt',
+                'fw_version': self.app.app_version,
+                'mender_artifact': self.app.mender_artifact
+            }
+        ))
+
         self.telemetryEvent.emit('personality/init', None)
 
         self.logger.debug('initialize')
