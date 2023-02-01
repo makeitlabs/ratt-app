@@ -77,12 +77,13 @@ The `conf/ratt-devhost.ini-example` example config file contains appropriate set
 When deploying this application - to get it to run smoothly, you must...
 
 1. Add MakeIt devel auth server into `/etc/hosts` like `10.25.0.10 auth`
-1. Add your own ssh key into `/home/root/.ssh/authorized_keys`
-1. Configure `/data/ratt/ratt.ini` as required, like:
+2. Add MakeIt mqtt server into `/etc/hosts` like `10.25.0.8 mqtt`
+3. Add your own ssh key into `/home/root/.ssh/authorized_keys`
+4. Configure `/data/ratt/ratt.ini` as required, like:
   1. `ToolDesc=` with friendly tool name
-  1. `Class=` with a class from the `/usr/ratt/personalities` directory
-  1. `ResourceId=` to match appropriate Resource name in AuthIt
-  1. `NodeName=` to match approprate Node Name in AuthIt
-  1. `BrokerHost=auth` to match server previously in `/etc/hosts`
-  1. `BrokerPort=1883` for standard internal MakeIt MQTT
+  2. `Class=` with a class from the `/usr/ratt/personalities` directory
+  3. `ResourceId=` to match appropriate Resource name in AuthIt
+  4. `NodeName=` to match approprate Node Name in AuthIt
+  5. `BrokerHost=mqtt` to match server previously in `/etc/hosts`
+  6. `BrokerPort=8883` for standard internal MakeIt MQTTS
 
