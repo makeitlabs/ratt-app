@@ -72,3 +72,17 @@ It is also possible to use a remote auth backend, either directly accessible via
 The `conf/ratt-devhost.ini-example` example config file contains appropriate settings to allow the app to run on the development host with simulated I/O, RFID, and diagnostics display output.  The example should be copied to `ratt-devhost.ini` and modified to suit your specific environment.
 
     python3 ./ratt.py --ini ./conf/ratt-devhost.ini
+    
+# Deployment Notes
+When deploying this application - to get it to run smoothly, you must...
+
+1. Add MakeIt devel auth server into `/etc/hosts` like `10.25.0.10 auth`
+1. Add your own ssh key into `/home/root/.ssh/authorized_keys`
+1. Configure `/data/ratt/ratt.ini` as required, like:
+  1. `ToolDesc=` with friendly tool name
+  1. `Class=` with a class from the `/usr/ratt/personalities` directory
+  1. `ResourceId=` to match appropriate Resource name in AuthIt
+  1. `NodeName=` to match approprate Node Name in AuthIt
+  1. `BrokerHost=auth` to match server previously in `/etc/hosts`
+  1. `BrokerPort=1883` for standard internal MakeIt MQTT
+
