@@ -202,7 +202,8 @@ class RattAppEngine(QQmlApplicationEngine):
 
         # RFID reader
         self._rfid = RFID(portName=self.config.value('RFID.SerialPort'),
-                          loglevel=self.config.value('RFID.LogLevel'))
+                          loglevel=self.config.value('RFID.LogLevel'),
+                          protocol=self.config.value('RFID.Protocol'))
         self._rfid.monitor()
 
         # Initialize and connect MQTT client

@@ -175,6 +175,10 @@ class RattConfig(QObject):
     def General_Diags(self):
         return self.config['General.Diags']
 
+    @pyqtProperty(QVariant, notify=configChanged)
+    def General_Virt(self):
+        return self.config['General.Virt']
+
     @pyqtProperty(list, notify=configChanged)
     def GPIO_InputNames(self):
         return self.config['GPIO.InputNames'].split(',')
@@ -408,6 +412,7 @@ class RattConfig(QObject):
 
         self.addSection('General')
         self.addConfigBool('General', 'Diags', True)
+        self.addConfigBool('General', 'Virt', False)
         self.addConfig('General', 'ToolDesc', 'Tool')
         self.addConfig('General', 'NetworkInterfaceName', 'wlan0')
         self.addConfig('General', 'NodeId', None)
@@ -477,6 +482,7 @@ class RattConfig(QObject):
         self.addConfig('RFID', 'LogLevel', 'INFO')
         self.addConfig('RFID', 'SerialPort', '/dev/ttyS0')
         self.addConfigInt('RFID', 'SimulatedTag', 0)
+        self.addConfig('RFID', 'Protocol', 'gwiot')
 
         self.addSection('Sound')
         self.addConfigBool('Sound', 'EnableSilenceLoop', True)

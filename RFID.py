@@ -68,7 +68,7 @@ class RFID(QThread):
         now = calendar.timegm(time.gmtime())
         self.tagScanError.emit(0, now, 'simulated')
 
-    def __init__(self, portName='', baudRate=QSerialPort.Baud9600, loglevel='WARNING'):
+    def __init__(self, portName='', baudRate=QSerialPort.Baud9600, loglevel='WARNING', protocol='gwiot'):
         QThread.__init__(self)
 
         self.logger = Logger(name='ratt.rfid')
@@ -85,6 +85,13 @@ class RFID(QThread):
         self.quit = False
 
         self.outQueue = queue.Queue()
+        
+        if protocol == 'gwiot':
+            self.decode = self.decode_gwiot
+        elif protocol == 'tormach':
+            self.decode = self.decode_tormach
+        else:
+            self.decode = None
 
     def serialOut(self, msg):
         self.mutex.lock()
@@ -105,6 +112,31 @@ class RFID(QThread):
 
         return bstr
 
+
+    def decode_tormach(self, bytes):
+        #
+        # sample packet from RDM-6300 via custom Tormach USB pendant
+        # https://github.com/makeitlabs/tormach-pendant
+        #
+        # the checksum is omitted by the Teensy firmware when forwarding the RFID packet
+        #
+        # 00   01   02   03   04   05   06   07   08   09   10  11   BYTE #
+        # -----------------------------------------------------------------
+        # 02   xx   xx   xx   xx   xx   xx   xx   xx   xx   xx  03
+        # |    |    |    |    |    |    |    |    |    |    |   |
+        # STX  String with ten hex digits representing the tag  ETX
+
+        if bytes.length() == 12 and ord(bytes[0]) == 0x02 and ord(bytes[11]) == 0x03:
+            id = ((int(bytes[1], 16)) << 8) + ((int(bytes[2], 16)) << 4) + ((int(bytes[3], 16)) << 0)
+            tag_str = str(bytes[4:11], 'utf-8')
+            tag = int(tag_str, 16)
+            
+            self.logger.debug("serial read: " + self.dump_pkt(bytes))
+            self.logger.debug('tag_str = ' + tag_str)
+            self.logger.debug('tag = %10.10d' % tag)
+
+            return tag
+           
 
     def decode_gwiot(self, bytes):
         #
@@ -187,7 +219,11 @@ class RFID(QThread):
                 while self.serial.waitForReadyRead(10):
                     bytes += self.serial.readAll()
 
-                tag = self.decode_gwiot(bytes)
+                if not self.decode:
+                    self.logger.error('no decoded defined for rfid!')
+                    exit
+
+                tag = self.decode(bytes)
                 now = calendar.timegm(time.gmtime())
 
                 self.logger.debug("tag=%d, now=%d" % (tag, now))
