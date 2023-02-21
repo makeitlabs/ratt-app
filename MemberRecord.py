@@ -85,6 +85,8 @@ class MemberRecord(QObject):
         self._isLoggedIn = False
         self.recordChanged.emit()
 
+    def isClear(self):
+        return self._member == '' and self._isValid == False and self._isLoggedIn == False
 
     def parseRecord(self, record):
         try:

@@ -115,7 +115,6 @@ class PersonalityBase(PersonalityStateMachine):
 
 
     def __init__(self, loglevel='WARNING', app=None):
-
         self.logger = Logger(name='ratt.personality')
         self.logger.setLogLevelStr(loglevel)
 
@@ -348,32 +347,51 @@ class PersonalityBase(PersonalityStateMachine):
 
     # slot to handle a valid RFID scan (whether that member is allowed or not)
     def __slotValidScan(self, record):
-        self.logger.debug('valid scan: %s (%s)' % (record.name, record.allowed))
-
-        self.activeMemberRecord.copy(source=record)
-
         self.mutex.lock()
-        if record.valid and record.allowed:
-            self.wakereason = self.REASON_RFID_ALLOWED
-        else:
-            self.wakereason = self.REASON_RFID_DENIED
+        if self.activeMemberRecord.isClear():
+            self.logger.debug('valid scan: %s (%s)' % (record.name, record.allowed))
 
-        self._rfidErrorReason = ''
+            self.activeMemberRecord.copy(source=record)
+
+            if record.valid and record.allowed:
+                self.wakereason = self.REASON_RFID_ALLOWED
+            else:
+                self.wakereason = self.REASON_RFID_DENIED
+
+            self._rfidErrorReason = ''
+        elif record.valid:
+            self.logger.debug('valid re-scan: %s (%s)' % (record.name, record.allowed))
+            
+            print('level = %s' % (record.level))
+            
+            if record.name == self.activeMemberRecord.name:
+                if record.allowed:
+                    self.wakereason = self.REASON_RFID_ALLOWED_RESCAN
+                else:
+                    self.wakereason = self.REASON_RFID_DENIED_RESCAN
+            else:
+                self.wakereason = self.REASON_RFID_DENIED_RESCAN
+                
 
         self.mutex.unlock()
         self.cond.wakeAll()
 
     # slot to handle an invalid RFID scan (unknown tag, bad tag, error, etc.)
     def __slotInvalidScan(self, reason):
-        self.logger.debug('invalid scan: %s' % reason)
-
-        empty = MemberRecord()
-
-        self.activeMemberRecord.copy(source=empty)
-
         self.mutex.lock()
-        self.wakereason = self.REASON_RFID_ERROR
-        self._rfidErrorReason = reason
+        if self.activeMemberRecord.isClear():
+            self.logger.debug('invalid scan: %s' % reason)
+            
+            empty = MemberRecord()
+
+            self.activeMemberRecord.copy(source=empty)
+
+            self.wakereason = self.REASON_RFID_ERROR
+            self._rfidErrorReason = reason
+        else:
+            self.wakereason = self.REASON_RFID_ERROR_RESCAN
+            self._rfidErrorReason = reason
+            
         self.mutex.unlock()
         self.cond.wakeAll()
 

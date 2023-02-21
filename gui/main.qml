@@ -131,6 +131,14 @@ ApplicationWindow {
                 case "ToolEnabledEmergencyStop":
                     switchTo(viewEnabled);
                     break;
+
+                case "ToolSpindleLockRequest":
+                case "ToolSpindleLocked":
+                case "ToolSpindleUnlockFailed":
+                case "ToolSpindleUnlock":
+                    switchTo(viewSpindleLock);
+                    break;
+
                 case "ToolEmergencyStop":
                     switchTo(viewEmergencyStop);
                     break;
@@ -278,6 +286,10 @@ ApplicationWindow {
                 }
                 ViewEnabled {
                     id: viewEnabled
+                    visible: false
+                }
+                ViewSpindleLock {
+                    id: viewSpindleLock
                     visible: false
                 }
                 ViewEmergencyStop {
