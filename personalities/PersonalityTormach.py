@@ -74,7 +74,6 @@ class Personality(PersonalitySimple):
     def enableTool(self):
         self.logger.debug('TORMACH ENABLE TOOL')
         self.pins_out[0].set(HIGH)
-        self.enableSpindle()
 
     # disable tool
     def disableTool(self):
@@ -105,6 +104,8 @@ class Personality(PersonalitySimple):
             self.telemetryEvent.emit('personality/activity', json.dumps({'active': False, 'member': self.activeMemberRecord.name}))
             self.toolActiveFlag = False
             self.pin_led1.set(HIGH)
+            self.enableTool()
+            self.enableSpindle()
             return self.goActive()
 
         elif self.phACTIVE:
