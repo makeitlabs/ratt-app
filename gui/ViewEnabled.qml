@@ -43,7 +43,9 @@ View {
     id: root
     name: "Enabled"
 
-    color: idleWarning ? "#666666" : "#000099"
+
+    // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately
+    color: idleWarning ? "#666666" : config.Personality_Class == "Tormach" ? "#555555" :"#000099"
 
     property int enabledSecs: 0
     property int activeSecs: 0
@@ -100,8 +102,13 @@ View {
 
     function _show() {
       status.setKeyActives(true, false, false, true);
-      enabledSecs = 0;
-      activeSecs = 0;
+
+      if (!personality.previousState.startsWith('ToolSpindle')) {
+        enabledSecs = 0;
+        activeSecs = 0;
+        sound.enableAudio.play();
+      }
+
       if (activeMemberRecord.level > 0) {
         idleTimeoutSecs = config.Personality_AdminTimeoutSeconds;
       } else {
@@ -109,8 +116,6 @@ View {
       }
       idleSecs = idleTimeoutSecs;
       updateTime();
-
-      sound.enableAudio.play();
     }
 
     function _hide() {

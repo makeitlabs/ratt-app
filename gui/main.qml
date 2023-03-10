@@ -163,7 +163,7 @@ ApplicationWindow {
         }
 
         onStateChanged: {
-            console.info("current state changed " + state + ":" + phase);
+            console.info("current state changed from " + prevState + "->" + state + ":" + phase);
 
         }
     }

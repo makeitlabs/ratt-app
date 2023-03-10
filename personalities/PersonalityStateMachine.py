@@ -91,7 +91,7 @@ class PersonalityStateMachine(QThread):
     # at a minimum it's usually the idle state .. it's left empty here
     validLockoutStates = []
 
-    stateChanged = pyqtSignal(str, str, name='stateChanged', arguments=['state', 'phase'])
+    stateChanged = pyqtSignal(str, str, str, name='stateChanged', arguments=['state', 'phase', 'prevState'])
     pinChanged = pyqtSignal(int, int, name='pinChanged', arguments=['pin', 'state'])
 
     timerStart = pyqtSignal(int, name='timerStart', arguments=['msec'])
@@ -102,6 +102,10 @@ class PersonalityStateMachine(QThread):
     @pyqtProperty(str, notify=stateChanged)
     def currentState(self):
         return self.stateName()
+
+    @pyqtProperty(str, notify=stateChanged)
+    def previousState(self):
+        return self.stateName(self.prevState, self.PHASE_EXIT)
 
     def __init__(self, logger=None):
         QThread.__init__(self)
@@ -119,6 +123,7 @@ class PersonalityStateMachine(QThread):
 
         self.state = None
         self.statePhase = None
+        self.prevState = None
 
         self.timer = QTimer()
         self.timer.setSingleShot(False)
@@ -222,10 +227,14 @@ class PersonalityStateMachine(QThread):
         if state in self.states:
             if state != self.state or phase != self.statePhase:
                 self.logger.debug('setState %s ==> %s' % (self.stateName(self.state, self.statePhase), self.stateName(state, phase)))
+
+                if self.state != state:
+                    self.prevState = self.state
+                
                 self.state = state
                 self.statePhase = phase
 
-                self.stateChanged.emit(self.state, self.phaseName(self.statePhase))
+                self.stateChanged.emit(self.state, self.phaseName(self.statePhase), self.prevState)
                 return True
             else:
                 self.logger.warning('tried to change to current state %s' % self.stateName(state, phase))
@@ -253,9 +262,12 @@ class PersonalityStateMachine(QThread):
     # emits the stateChanged signal upon change
     def goNextState(self):
         self.logger.debug('goNextState %s ==> %s' % (self.stateName(self.state, self.statePhase), self.stateName(self.nextState, self.nextStatePhase)))
+        if self.nextState != self.state:
+            self.prevState = self.state
+        
         self.state = self.nextState
         self.statePhase = self.nextStatePhase
-        self.stateChanged.emit(self.state, self.phaseName(self.statePhase))
+        self.stateChanged.emit(self.state, self.phaseName(self.statePhase), self.prevState)
         return True
 
     # shortcut to set the enter phase of the next state and exits the current state through its exit phase

@@ -50,9 +50,11 @@ View {
 
 
     function _show() {
+        sound.generalAlertAudio.play();
     }
 
     function _hide() {
+        sound.generalAlertAudio.play();
     }
 
     function done() {
@@ -73,7 +75,7 @@ View {
                 failedRFID = state == "ToolSpindleUnlockFailed"
 
                 if (state == "ToolSpindleLocked") {
-                    sound.safetyFailedAudio.play();
+                    sound.general3AlertAudio.play();
                 } else if (state == "ToolSpindleUnlockFailed") {
                     sound.rfidFailureAudio.play();
                 }
@@ -186,7 +188,7 @@ View {
           Label {
               id: label2
               width: parent.width
-              text: isLocked ? "Scan RFID" : "5 Seconds"
+              text: isLocked ? "Scan RFID" : "3 Seconds"
               horizontalAlignment: Text.AlignHCenter
               font.pixelSize: 16
               font.weight: Font.Bold

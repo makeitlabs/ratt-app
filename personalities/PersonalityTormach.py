@@ -146,7 +146,7 @@ class Personality(PersonalitySimple):
                 if self.toolSpindleLockReq():
                     self._lock_counter = self._lock_counter + 1
                     
-                    if self._lock_counter >= 10:
+                    if self._lock_counter >= 6:
                         self.exitAndGoto(self.STATE_TOOL_SPINDLE_LOCKED)
                     
                 else:

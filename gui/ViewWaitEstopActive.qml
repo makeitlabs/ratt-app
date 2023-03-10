@@ -45,7 +45,7 @@ View {
     color: "#444444"
 
     function _show() {
-        sound.generalAlertAudio.play();
+        sound.general2AlertAudio.play();
         waitTimer.start();
         audioHelperTimer.start();
     }
@@ -144,7 +144,8 @@ View {
               horizontalAlignment: Text.AlignHCenter
               font.pixelSize: 26
               font.weight: Font.Bold
-              color: "#FF3300"
+              color: config.Personality_Class == "Tormach" ? "#0033FF" : "#FF3300"
+              // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately.
           }
           Glow {
             anchors.fill: label1
@@ -165,7 +166,8 @@ View {
               horizontalAlignment: Text.AlignHCenter
               font.pixelSize: 24
               font.weight: Font.Bold
-              color: "#FF3300"
+              color: config.Personality_Class == "Tormach" ? "#0033FF" : "#FF3300"
+              // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately.
           }
           Glow {
             anchors.fill: label2
@@ -185,7 +187,8 @@ View {
               horizontalAlignment: Text.AlignHCenter
               font.pixelSize: 16
               font.weight: Font.Bold
-              color: "#FFFF00"
+              color: config.Personality_Class == "Tormach" ? "#00FFFF" : "#FFFF00"
+              // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately.
           }
           Glow {
             anchors.fill: label3

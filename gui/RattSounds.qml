@@ -43,6 +43,9 @@ import RATT 1.0
 Item {
     property alias keyAudio: keyAudio
     property alias generalAlertAudio: generalAlertAudio
+    property alias general2AlertAudio: general2AlertAudio
+    property alias general3AlertAudio: general3AlertAudio
+    property alias general4AlertAudio: general4AlertAudio
     property alias safetyFailedAudio: safetyFailedAudio
     property alias enableAudio: enableAudio
     property alias disableAudio: disableAudio
@@ -80,6 +83,18 @@ Item {
     SoundEffect {
         id: generalAlertAudio
         source: config.Sound_GeneralAlert
+    }
+    SoundEffect {
+        id: general2AlertAudio
+        source: config.Sound_General2Alert
+    }        
+    SoundEffect {
+        id: general3AlertAudio
+        source: config.Sound_General3Alert
+    }
+    SoundEffect {
+        id: general4AlertAudio
+        source: config.Sound_General4Alert
     }
     SoundEffect {
         id: rfidSuccessAudio
