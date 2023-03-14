@@ -98,6 +98,7 @@ class PersonalityStateMachine(QThread):
     timerStop = pyqtSignal()
 
     telemetryEvent = pyqtSignal(str, str, name='telemetryEvent', arguments=['subtopic', 'message'])
+    telemetryEventRetain = pyqtSignal(str, str, name='telemetryEventRetain', arguments=['subtopic', 'message'])
 
     @pyqtProperty(str, notify=stateChanged)
     def currentState(self):

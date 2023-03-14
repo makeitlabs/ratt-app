@@ -221,6 +221,7 @@ class Personality(PersonalityBase):
     def stateIdle(self):
         if self.phENTER:
             self.logger.info('simple stateIdle enter')
+            self.telemetryEventRetain.emit('personality/who', None)
             if self.activeMemberRecord.loggedIn:
                 self.telemetryEvent.emit('personality/logout', json.dumps({'member': self.activeMemberRecord.name, 'reason': 'other'}))
             self.activeMemberRecord.clear()
@@ -379,6 +380,7 @@ class Personality(PersonalityBase):
     #############################################
     def stateAccessAllowed(self):
         if self.phENTER:
+            self.telemetryEventRetain.emit('personality/who', json.dumps({'member': self.activeMemberRecord.name, 'endorsements': self.activeMemberRecord.endorsements}))
             self.telemetryEvent.emit('personality/login', json.dumps({'allowed': True, 'member': self.activeMemberRecord.name}))
             self.activeMemberRecord.loggedIn = True
             self.pin_led1.set(HIGH)

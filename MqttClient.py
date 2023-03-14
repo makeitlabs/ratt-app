@@ -197,6 +197,9 @@ class MqttClient(QThread):
     def slotPublishSubtopic(self, subtopic, msg):
         self.publish(subtopic=subtopic, msg=msg)
 
+    @pyqtSlot(str, str)
+    def slotPublishSubtopicRetain(self, subtopic, msg):
+        self.publish(subtopic=subtopic, msg=msg, retain=True)
 
     #################################################################
     @pyqtSlot()
