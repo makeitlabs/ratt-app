@@ -55,7 +55,7 @@ class Personality(PersonalitySimple):
         PersonalitySimple.__init__(self, *args, **kwargs)
         self.pins_out[0].set(LOW)
 
-        self._monitorToolPower = False
+        self._monitorToolPower = True
         self._performSafetyCheck = False
         self._monitorEstop = True
 
@@ -91,6 +91,13 @@ class Personality(PersonalitySimple):
         self.logger.debug('TORMACH DISABLE SPINDLE')
         self.pins_out[1].set(LOW)
 
+    # returns true if the tool is currently powered up
+    def toolPowered(self):
+        return (self.pins_in[3].get() == 0)
+
+    # returns true if the tool's E-Stop loop is latched and ready
+    def toolEstopEnabled(self):
+        return (self.pins_in[1].get() == 1)
 
     # returns true if the tool's E-Stop loop is latched and ready
     def toolSpindleLockReq(self):
