@@ -129,7 +129,11 @@ ApplicationWindow {
                 case "ToolEnabledActive":
                 case "ToolEnabledNotPowered":
                 case "ToolEnabledEmergencyStop":
-                    switchTo(viewEnabled);
+                    if (config.Personality_Class=="Waterjet") {
+                      switchTo(viewWaterjetEnabled);
+                    } else {
+                      switchTo(viewEnabled);
+                    }
                     break;
                 case "ToolEmergencyStop":
                     switchTo(viewEmergencyStop);
@@ -278,6 +282,10 @@ ApplicationWindow {
                 }
                 ViewEnabled {
                     id: viewEnabled
+                    visible: false
+                }
+                ViewWaterjetEnabled {
+                    id: viewWaterjetEnabled
                     visible: false
                 }
                 ViewEmergencyStop {
