@@ -244,7 +244,7 @@ View {
         anchors.fill: parent
         Item {
           Layout.fillWidth: true
-          Layout.preferredHeight: config.Personality_UseEndorsements ? 10 : 16
+          Layout.preferredHeight: 10
           Label {
               id: memberNameLabel
               width: parent.width
@@ -264,9 +264,9 @@ View {
         }
 
         Item {
-          visible: config.Personality_UseEndorsements
+          visible: true
           Layout.fillWidth: true
-          Layout.preferredHeight: config.Personality_UseEndorsements ? 10 : 0
+          Layout.preferredHeight: 10
           Label {
               id: memberAdvLabel
               width: parent.width
@@ -275,9 +275,6 @@ View {
                 if (payTier == 0) return ("");
                 if (payTier == 1) return ("Free Tier");
                 return (allowFree) ? "Free Enabled" : "";
-                return personality.hasAdvancedEndorsement ?
-                  config.Personality_AdvancedDescription :
-                  config.Personality_NonAdvancedDescription;
               }
               horizontalAlignment: Text.AlignHCenter
               font.pixelSize: 10
