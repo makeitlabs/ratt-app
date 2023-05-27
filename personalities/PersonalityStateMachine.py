@@ -57,10 +57,13 @@ class PersonalityStateMachine(QThread):
     REASON_RFID_ALLOWED = 4
     REASON_RFID_DENIED = 5
     REASON_RFID_ERROR = 6
-    REASON_UI = 7
-    REASON_MQTT = 10
-    REASON_LOCK_OUT = 20
-    REASON_LOCK_OUT_CANCELED = 21
+    REASON_RFID_ALLOWED_RESCAN = 7
+    REASON_RFID_DENIED_RESCAN = 8
+    REASON_RFID_ERROR_RESCAN = 9
+    REASON_UI = 10
+    REASON_MQTT = 20
+    REASON_LOCK_OUT = 30
+    REASON_LOCK_OUT_CANCELED = 31
     REASON_POWER_LOST = 100
     REASON_POWER_RESTORED = 101
     REASON_BATTERY_CHARGING = 102
@@ -70,6 +73,9 @@ class PersonalityStateMachine(QThread):
                      REASON_GPIO : 'GPIO' ,
                      REASON_RFID_ALLOWED : 'RFID_ALLOWED', REASON_RFID_DENIED : 'RFID_DENIED',
                      REASON_RFID_ERROR : 'RFID_ERROR',
+                     REASON_RFID_ALLOWED_RESCAN : 'RFID_ALLOWED_RESCAN', REASON_RFID_DENIED_RESCAN : 'RFID_DENIED_RESCAN',
+                     REASON_RFID_ERROR_RESCAN : 'RFID_ERROR_RESCAN',
+
                      REASON_UI : 'UI',
                      REASON_MQTT : 'MQTT',
                      REASON_LOCK_OUT : 'LOCK_OUT', REASON_LOCK_OUT_CANCELED : 'LOCK_OUT_CANCELED',
@@ -85,17 +91,22 @@ class PersonalityStateMachine(QThread):
     # at a minimum it's usually the idle state .. it's left empty here
     validLockoutStates = []
 
-    stateChanged = pyqtSignal(str, str, name='stateChanged', arguments=['state', 'phase'])
+    stateChanged = pyqtSignal(str, str, str, name='stateChanged', arguments=['state', 'phase', 'prevState'])
     pinChanged = pyqtSignal(int, int, name='pinChanged', arguments=['pin', 'state'])
 
     timerStart = pyqtSignal(int, name='timerStart', arguments=['msec'])
     timerStop = pyqtSignal()
 
     telemetryEvent = pyqtSignal(str, str, name='telemetryEvent', arguments=['subtopic', 'message'])
+    telemetryEventRetain = pyqtSignal(str, str, name='telemetryEventRetain', arguments=['subtopic', 'message'])
 
     @pyqtProperty(str, notify=stateChanged)
     def currentState(self):
         return self.stateName()
+
+    @pyqtProperty(str, notify=stateChanged)
+    def previousState(self):
+        return self.stateName(self.prevState, self.PHASE_EXIT)
 
     def __init__(self, logger=None):
         QThread.__init__(self)
@@ -113,6 +124,7 @@ class PersonalityStateMachine(QThread):
 
         self.state = None
         self.statePhase = None
+        self.prevState = None
 
         self.timer = QTimer()
         self.timer.setSingleShot(False)
@@ -216,10 +228,14 @@ class PersonalityStateMachine(QThread):
         if state in self.states:
             if state != self.state or phase != self.statePhase:
                 self.logger.debug('setState %s ==> %s' % (self.stateName(self.state, self.statePhase), self.stateName(state, phase)))
+
+                if self.state != state:
+                    self.prevState = self.state
+                
                 self.state = state
                 self.statePhase = phase
 
-                self.stateChanged.emit(self.state, self.phaseName(self.statePhase))
+                self.stateChanged.emit(self.state, self.phaseName(self.statePhase), self.prevState)
                 return True
             else:
                 self.logger.warning('tried to change to current state %s' % self.stateName(state, phase))
@@ -247,9 +263,12 @@ class PersonalityStateMachine(QThread):
     # emits the stateChanged signal upon change
     def goNextState(self):
         self.logger.debug('goNextState %s ==> %s' % (self.stateName(self.state, self.statePhase), self.stateName(self.nextState, self.nextStatePhase)))
+        if self.nextState != self.state:
+            self.prevState = self.state
+        
         self.state = self.nextState
         self.statePhase = self.nextStatePhase
-        self.stateChanged.emit(self.state, self.phaseName(self.statePhase))
+        self.stateChanged.emit(self.state, self.phaseName(self.statePhase), self.prevState)
         return True
 
     # shortcut to set the enter phase of the next state and exits the current state through its exit phase

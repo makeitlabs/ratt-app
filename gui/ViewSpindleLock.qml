@@ -41,111 +41,94 @@ import QtGraphicalEffects 1.0
 
 View {
     id: root
-    name: "E-Stop Wait"
-    color: "#444444"
+    name: "Spindle Lock"
+    property bool isLocked: false
+    property bool failedRFID : false
+
+    color: isLocked ? "#883333" : "#333333"
+
+
 
     function _show() {
-        sound.general2AlertAudio.play();
-        waitTimer.start();
-        audioHelperTimer.start();
+        sound.generalAlertAudio.play();
     }
 
     function _hide() {
-        sound.enableEstopAudio.stop();
-        audioHelperTimer.stop();
-        waitTimer.stop();
+        sound.generalAlertAudio.play();
     }
 
     function done() {
-        sound.timeoutWarningAudio.play();
-
-        var jo = {reason: 'timeout',
-                  member: activeMemberRecord.name,
-                  enabledSecs: 0,
-                  activeSecs: 0,
-                  idleSecs: 0
-                  };
-        appWindow.mqttPublishSubtopicEvent('personality/logout', JSON.stringify(jo));
-        activeMemberRecord.loggedIn = false;
-
-        appWindow.uiEvent('WaitEstopTimeout');
     }
 
-    Timer {
-        id: audioHelperTimer
-        interval: 10000
-        repeat: false
-        running: false
-        onTriggered: {
-            sound.enableEstopAudio.play();
+    Connections {
+        target: personality
+
+        function checkPersonalityState() {
+            var curState = personality.currentState;
+            var sp = curState.split(".");
+
+            if (sp.length >= 2) {
+                var state = sp[0];
+                var phase = sp[1];
+
+                isLocked = state == "ToolSpindleLocked" || state == "ToolSpindleUnlockFailed";
+                failedRFID = state == "ToolSpindleUnlockFailed"
+
+                if (state == "ToolSpindleLocked") {
+                    sound.general3AlertAudio.play();
+                } else if (state == "ToolSpindleUnlockFailed") {
+                    sound.rfidFailureAudio.play();
+                }
+            }
+        }
+
+        Component.onCompleted: {
+            checkPersonalityState();
+        }
+
+        onCurrentStateChanged: {
+            checkPersonalityState();
         }
     }
 
-    Timer {
-        id: waitTimer
-        interval: 60000
-        repeat: false
-        running: false
-        onTriggered: {
-            done();
-        }
-    }
 
     SequentialAnimation {
         running: true
         loops: Animation.Infinite
         PropertyAnimation {
-            target: item1
+            targets: isLocked ? [item1] : [item1, item2]
             property: "opacity"
             from: 1.0
-            to: 0
-            duration: 10
+            to: 0.2
+            duration: isLocked ? 1500 : 500
         }
         PropertyAnimation {
-            target: item2
+            targets: isLocked ? [item1] : [item1, item2]
             property: "opacity"
-            from: 1.0
-            to: 0
-            duration: 10
+            from: 0.2
+            to: 1.0
+            duration: isLocked ? 1500 : 500
         }
         PauseAnimation {
-            duration: 500
-        }
-        PropertyAnimation {
-            target: item1
-            property: "opacity"
-            from: 0
-            to: 1.0
-            duration: 10
-        }
-        PropertyAnimation {
-            target: item2
-            property: "opacity"
-            from: 0
-            to: 1.0
-            duration: 10
-        }
-        PauseAnimation {
-            duration: 500
+            duration: isLocked ? 1000 : 250
         }
     }
-
 
     ColumnLayout {
         anchors.fill: parent
         Item {
           id: item1
+          visible: !failedRFID
           Layout.fillWidth: true
-          Layout.preferredHeight: 28
+          Layout.preferredHeight: 18
           Label {
               id: label1
               width: parent.width
-              text: "DISENGAGE"
+              text: isLocked ? "SPINDLE LOCKED" : "SPINDLE LOCK"
               horizontalAlignment: Text.AlignHCenter
-              font.pixelSize: 26
+              font.pixelSize: 18
               font.weight: Font.Bold
-              color: config.Personality_Class == "Tormach" ? "#0033FF" : "#FF3300"
-              // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately.
+              color: "#FF3300"
           }
           Glow {
             anchors.fill: label1
@@ -156,18 +139,60 @@ View {
         }
 
         Item {
-          id: item2
+          id: itemFF
+          visible: failedRFID
           Layout.fillWidth: true
-          Layout.preferredHeight: 26
+          Layout.preferredHeight: 14
+          Label {
+              id: labelFF
+              width: parent.width
+              text: "Must be unlocked by"
+              horizontalAlignment: Text.AlignHCenter
+              font.pixelSize: 14
+              font.weight: Font.Bold
+              color: "#FFFF00"
+          }
+          Glow {
+            anchors.fill: labelFF
+            source: labelFF
+            radius: 4
+            color: "black"
+          }
+        }
+
+        Item {
+          id: item3
+          Layout.fillWidth: true
+          Layout.preferredHeight: 14
+          Label {
+              id: label3
+              width: parent.width
+              text: isLocked ? activeMemberRecord.name : "Hold Button"
+              horizontalAlignment: Text.AlignHCenter
+              font.pixelSize: 14
+              font.weight: Font.Bold
+              color: isLocked ? "#33ccff" : "#ffffff"
+          }
+          Glow {
+            anchors.fill: label3
+            source: label3
+            radius: 4
+            color: "black"
+          }
+        }
+        Item {
+          id: item2
+          visible: !failedRFID
+          Layout.fillWidth: true
+          Layout.preferredHeight: 16
           Label {
               id: label2
               width: parent.width
-              text: "E-STOP"
+              text: isLocked ? "Scan RFID" : "3 Seconds"
               horizontalAlignment: Text.AlignHCenter
-              font.pixelSize: 24
+              font.pixelSize: 16
               font.weight: Font.Bold
-              color: config.Personality_Class == "Tormach" ? "#0033FF" : "#FF3300"
-              // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately.
+              color: "#ffffff"
           }
           Glow {
             anchors.fill: label2
@@ -177,25 +202,5 @@ View {
           }
         }
 
-        Item {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 16
-          Label {
-              id: label3
-              width: parent.width
-              text: "THEN PRESS RESET"
-              horizontalAlignment: Text.AlignHCenter
-              font.pixelSize: 16
-              font.weight: Font.Bold
-              color: config.Personality_Class == "Tormach" ? "#00FFFF" : "#FFFF00"
-              // Tormach PathPilot uses blue lights for E-Stop reset so theme appropriately.
-          }
-          Glow {
-            anchors.fill: label3
-            source: label3
-            radius: 1
-            color: "black"
-          }
-        }
     }
 }

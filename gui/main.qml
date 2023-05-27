@@ -135,6 +135,14 @@ ApplicationWindow {
                       switchTo(viewEnabled);
                     }
                     break;
+
+                case "ToolSpindleLockRequest":
+                case "ToolSpindleLocked":
+                case "ToolSpindleUnlockFailed":
+                case "ToolSpindleUnlock":
+                    switchTo(viewSpindleLock);
+                    break;
+
                 case "ToolEmergencyStop":
                     switchTo(viewEmergencyStop);
                     break;
@@ -159,7 +167,7 @@ ApplicationWindow {
         }
 
         onStateChanged: {
-            console.info("current state changed " + state + ":" + phase);
+            console.info("current state changed from " + prevState + "->" + state + ":" + phase);
 
         }
     }
@@ -286,6 +294,10 @@ ApplicationWindow {
                 }
                 ViewWaterjetEnabled {
                     id: viewWaterjetEnabled
+                    visible: false
+                }
+                ViewSpindleLock {
+                    id: viewSpindleLock
                     visible: false
                 }
                 ViewEmergencyStop {

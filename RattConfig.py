@@ -285,6 +285,18 @@ class RattConfig(QObject):
         return self.config['Sound.GeneralAlert']
 
     @pyqtProperty(str, notify=configChanged)
+    def Sound_General2Alert(self):
+        return self.config['Sound.General2Alert']
+
+    @pyqtProperty(str, notify=configChanged)
+    def Sound_General3Alert(self):
+        return self.config['Sound.General3Alert']
+
+    @pyqtProperty(str, notify=configChanged)
+    def Sound_General4Alert(self):
+        return self.config['Sound.General4Alert']
+
+    @pyqtProperty(str, notify=configChanged)
     def Sound_RFIDSuccess(self):
         return self.config['Sound.RFIDSuccess']
 
@@ -483,6 +495,9 @@ class RattConfig(QObject):
         self.addConfig('Sound', 'Silence', '')
         self.addConfig('Sound', 'KeyPress', '')
         self.addConfig('Sound', 'GeneralAlert', '')
+        self.addConfig('Sound', 'General2Alert', '')
+        self.addConfig('Sound', 'General3Alert', '')
+        self.addConfig('Sound', 'General4Alert', '')
         self.addConfig('Sound', 'RFIDSuccess', '')
         self.addConfig('Sound', 'RFIDFailure', '')
         self.addConfig('Sound', 'RFIDError', '')

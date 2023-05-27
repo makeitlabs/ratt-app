@@ -293,11 +293,23 @@ KeyPress=audio/sfx013.wav
 
 ; GeneralAlert=<wavfile>
 ; Path to audio file played when a generic alert is needed
-GeneralAlert=audio/sfx011.wav
+GeneralAlert=audio/455856__tissman__spaceship1.wav
+
+; General2Alert=<wavfile>
+; Path to audio file played when a generic alert is needed
+General2Alert=audio/337049__shinephoenixstormcrow__320655-rhodesmas-level-up-01.wav
+
+; General3Alert=<wavfile>
+; Path to audio file played when a generic alert is needed
+General3Alert=audio/345299__scrampunk__okay.wav
+
+; General4Alert=<wavfile>
+; Path to audio file played when a generic alert is needed
+General4Alert=audio/562997__conblast__alert-guitar.wav
 
 ; RFIDSuccess=<wavfile>
 ; Path to audio file played when RFID successfully scanned
-RFIDSuccess=audio/234564__foolboymedia__notification-up-i.wav
+RFIDSuccess=audio/542035__rob_marion__gasp_ui_notification_4.wav
 
 ; RFIDFailure=<wavfile>
 ; Path to audio file played when RFID scanned but not allowed
@@ -305,7 +317,7 @@ RFIDFailure=audio/258193__kodack__beep-beep.wav
 
 ; RFIDError=<wavfile>
 ; Path to audio file played when RFID scanned but tag not recognized or other error
-RFIDError=audio/249300__suntemple__access-denied.wav
+RFIDError=audio/sfx033.wav
 
 ; SafetyFailed=<wavfile>
 ; Path to audio file played when safety check failed when tool activated
@@ -313,11 +325,11 @@ SafetyFailed=audio/122989__zimbot__mutedphonealert.wav
 
 ; Enable=<wavfile>
 ; Path to audio file played when tool is enabled
-Enable=audio/beep_up.wav
+Enable=audio/72125__kizilsungur__sweetalertsound1.wav
 
 ; Disable=<wavfile>
 ; Path to audio file played when tool is disabled
-Disable=audio/beep_down.wav
+Disable=audio/72125__kizilsungur__sweetalertsound1a.wav
 
 ; TimeoutWarning=<wavfile>
 ; Path to audio file played when inactive and nearing timeout for auto-logout
