@@ -33,43 +33,22 @@
 #
 # --------------------------------------------------------------------------
 #
-# Author: Steve Richardson (steve.richardson@makeitlabs.com)
-#
+# Author: Brad Goodman (Bradley.Goodman@makeitlabs.com)
 
-from QtGPIO import LOW, HIGH
 from PersonalitySimple import Personality as PersonalitySimple
 import json
 
 class Personality(PersonalitySimple):
     #############################################
-    ## Tool Personality: Epilog Laser
+    ## Tool Personality: Protomax Waterjet
+    ##
+    ## This is just a 'Simple' personality, but the
+    ## 'Waterjet' class triggers some UI changes
+    ## which allows a free tier for Resource Managers
     #############################################
-    PERSONALITY_DESCRIPTION = 'Epilog'
+    PERSONALITY_DESCRIPTION = 'Protomax Waterjet'
 
     def __init__(self, *args, **kwargs):
         PersonalitySimple.__init__(self, *args, **kwargs)
-        self.pins_out[0].set(LOW)
-        self.pins_out[1].set(LOW)
-        self.pins_out[2].set(HIGH)
 
-    # enable tool
-    def enableTool(self):
-        self.logger.debug('EPILOG ENABLE TOOL')
-        self.pins_out[0].set(HIGH)
-        self.pins_out[1].set(HIGH)
-        self.pins_out[2].set(LOW)
-
-
-    # disable tool
-    def disableTool(self):
-        self.logger.debug('EPILOG DISABLE TOOL')
-        self.pins_out[0].set(LOW)
-        self.pins_out[1].set(LOW)
-        self.pins_out[2].set(HIGH)
-
-
-
-    # returns true if the tool is currently active
-    def toolActive(self):
-        return (self.pins_in[1].get() == 0)
 
