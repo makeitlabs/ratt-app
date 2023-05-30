@@ -63,6 +63,27 @@ StatusBar {
         keyReturnActive = ret;
     }
 
+    function setKeyLabels(esc = false, down = false, up = false, ret = false) {
+        if (esc == false) 
+            keyEscLabel = "\u2190";
+        else
+            keyEscLabel = esc;
+
+        if (down == false)
+            keyDownLabel = "\u25bc";
+        else
+            keyDownLabel = down;
+
+        if (up == false)
+            keyUpLabel = "\u25b2";
+        else
+            keyUpLabel = up;
+
+        if (ret == false)
+            keyReturnLabel = "\u25cf";
+        else
+            keyReturnLabel = ret;
+    }
 
     RowLayout {
         anchors.fill: parent

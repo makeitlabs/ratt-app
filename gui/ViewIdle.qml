@@ -151,6 +151,12 @@ View {
         status.keyReturnActive = true;
         status.keyUpActive = false;
         status.keyDownActive = true;
+        
+        status.setKeyLabels(false, '\u21E9', false, '\u24D8');
+    }
+
+    function _hide() {
+        status.setKeyLabels();
     }
 
     Connections {

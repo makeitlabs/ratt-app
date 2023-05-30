@@ -102,6 +102,8 @@ View {
 
     function _show() {
       status.setKeyActives(true, allowFree, false, true);
+
+      status.setKeyLabels(false, '$', false, false);
       enabledSecs = 0;
       payTier=0;
       activeSecs = 0;
@@ -117,6 +119,7 @@ View {
     }
 
     function _hide() {
+      status.setKeyLabels();
       if (allowForceLogout)
         forceLogoutTimer.stop();
     }
