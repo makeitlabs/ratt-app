@@ -280,7 +280,6 @@ class Personality(PersonalityBase):
             self.pin_led1.set(HIGH)
             self.wakeOnRFID(True)
             self.wakeOnTimer(enabled=True, interval=1500, singleShot=True)
-            self.activeMemberRecord.clear()
             return self.goActive()
 
         elif self.phACTIVE:
@@ -312,6 +311,7 @@ class Personality(PersonalityBase):
 
         elif self.phEXIT:
             self.wakeOnTimer(enabled=False)
+            self.wakeOnRFID(enabled=False)
             self.pin_led1.set(LOW)
             return self.goNextState()
 
@@ -330,6 +330,7 @@ class Personality(PersonalityBase):
 
         elif self.phEXIT:
             self.pin_led2.set(LOW)
+            self.activeMemberRecord.clear()
             return self.goNextState()
 
 
