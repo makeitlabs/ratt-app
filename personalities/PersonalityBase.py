@@ -359,11 +359,9 @@ class PersonalityBase(PersonalityStateMachine):
             else:
                 self.wakereason = self.REASON_RFID_DENIED
 
-            self._rfidErrorReason = ''
         elif record.valid:
             self.logger.debug('valid re-scan: %s (%s)' % (record.name, record.allowed))
-            
-            print('level = %s' % (record.level))
+            self.logger.debug('level = %s' % (record.level))
             
             if record.name == self.activeMemberRecord.name:
                 if record.allowed:
@@ -373,6 +371,7 @@ class PersonalityBase(PersonalityStateMachine):
             else:
                 self.wakereason = self.REASON_RFID_DENIED_RESCAN
                 
+        self._rfidErrorReason = ''
 
         self.mutex.unlock()
         self.cond.wakeAll()

@@ -280,6 +280,7 @@ class Personality(PersonalityBase):
             self.pin_led1.set(HIGH)
             self.wakeOnRFID(True)
             self.wakeOnTimer(enabled=True, interval=1500, singleShot=True)
+            self.activeMemberRecord.clear()
             return self.goActive()
 
         elif self.phACTIVE:
