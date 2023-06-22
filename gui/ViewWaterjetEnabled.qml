@@ -34,7 +34,7 @@
 // Author: Steve Richardson (steve.richardson@makeitlabs.com)
 //
 
-import QtQuick 2.6
+import QtQuick 2.7
 import QtQuick.Controls 1.4
 import QtQuick.Layouts 1.3
 import QtGraphicalEffects 1.0
@@ -60,6 +60,8 @@ View {
 
     Connections {
         target: personality
+        enabled: shown
+
         onToolActiveFlagChanged: {
             var isActive = personality.toolActiveFlag;
 
@@ -81,7 +83,7 @@ View {
                 var state = sp[0];
                 var phase = sp[1];
 
-                console.warn("state=", state);
+                console.debug("state=", state);
 
                 if (state == "ToolEnabledNotPowered") {
                   done('toolpower');
@@ -175,7 +177,7 @@ View {
         running: false
         repeat: false
         onTriggered: {
-          console.warn('level=', activeMemberRecord.level);
+          console.debug('level=', activeMemberRecord.level);
           if (activeMemberRecord.level > 0) {
             idleTimeoutSecs = config.Personality_AdminTimeoutSeconds;
             idleSecs = idleTimeoutSecs;
@@ -187,6 +189,8 @@ View {
 
 
     function done(reason) {
+        console.debug("ViewWaterjetEnabled done reason="+reason);
+
         if (reason != 'emergencystop') {
           sound.disableAudio.play();
         }

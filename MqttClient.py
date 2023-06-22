@@ -203,10 +203,12 @@ class MqttClient(QThread):
 
     @pyqtSlot(str, str)
     def slotPublishSubtopic(self, subtopic, msg):
+        self.logger.debug("publish Subtopic " + subtopic + ": " + msg)
         self.publish(subtopic=subtopic, msg=msg)
 
     @pyqtSlot(str, str)
     def slotPublishSubtopicRetain(self, subtopic, msg):
+        self.logger.debug("publish Subtopic [retain] " + subtopic + ": " + msg)
         self.publish(subtopic=subtopic, msg=msg, retain=True)
 
     #################################################################
