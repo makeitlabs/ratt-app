@@ -119,6 +119,12 @@ ApplicationWindow {
                 case "WaitEstopActive":
                     switchTo(viewWaitEstopActive);
                     break;
+                case "PassiveSafetyCheck":
+                    switchTo(viewSafetyCheck);
+                    break;
+                case "PassiveSafetyCheckFailed":
+                    switchTo(viewSafetyFailed);
+                    break;
                 case "SafetyCheck":
                     switchTo(viewSafetyCheck);
                     break;

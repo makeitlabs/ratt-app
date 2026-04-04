@@ -212,6 +212,10 @@ class RattConfig(QObject):
         return self.config['Personality.MonitorToolPowerEnabled']
 
     @pyqtProperty(bool, notify=configChanged)
+    def Personality_PassiveSafetyCheckEnabled(self):
+        return self.config['Personality.PassiveSafetyCheckEnabled']
+
+    @pyqtProperty(bool, notify=configChanged)
     def Personality_HomingManualOverrideEnabled(self):
         return self.config['Personality.HomingManualOverrideEnabled']
 
@@ -445,6 +449,11 @@ class RattConfig(QObject):
         self.addConfigBool('Personality', 'MonitorEstopEnabled', False)
         self.addConfigBool('Personality', 'SafetyCheckEnabled', False)
         self.addConfigBool('Personality', 'MonitorToolPowerEnabled', False)
+        self.addConfigBool('Personality', 'PassiveSafetyCheckEnabled', False)
+        self.addConfig('Personality', 'ToolActivePin', 'IN0')
+        self.addConfig('Personality', 'ToolPowerPin', 'IN1')
+        self.addConfig('Personality', 'PassiveSafetyCheckPin', 'IN2')
+        self.addConfig('Personality', 'EstopPin', 'IN3')
         self.addConfigBool('Personality', 'HomingManualOverrideEnabled', False)
         self.addConfigBool('Personality', 'HomingExternalOverrideEnabled', False)
         self.addConfigBool('Personality', 'PasswordEnabled', False)
