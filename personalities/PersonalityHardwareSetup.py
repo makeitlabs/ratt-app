@@ -28,6 +28,7 @@ class Personality(PersonalityBase):
 
     @pyqtSlot()
     def updateAllGPIO(self):
+        # self.logger.debug("updateAllGPIO called")
         # Notify QML of input states
         # pins_in[].get() returns python int matching sysfs
         self.gpioInputsChanged.emit(
@@ -47,6 +48,7 @@ class Personality(PersonalityBase):
 
     @pyqtSlot(int, bool)
     def setOutput(self, index, value):
+        self.logger.warning("setOutput called from QML! index=%d, value=%s", index, value)
         if 0 <= index <= 3:
             self.pins_out[index].set(HIGH if value else LOW)
             self.updateAllGPIO() # Broadcast new states

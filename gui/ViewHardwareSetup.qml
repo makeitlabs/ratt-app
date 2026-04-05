@@ -18,6 +18,23 @@ View {
     property bool out2Prop: false
     property bool out3Prop: false
 
+    function keyReturn(pressed) { if (pressed) personality.setOutput(0, !out0Prop); return true; }
+    function keyDown(pressed) { if (pressed) personality.setOutput(1, !out1Prop); return true; }
+    function keyUp(pressed) { if (pressed) personality.setOutput(2, !out2Prop); return true; }
+    function keyEscape(pressed) { if (pressed) personality.setOutput(3, !out3Prop); return true; }
+
+    function _show() {
+        status.keyEscActive = true;
+        status.keyDownActive = true;
+        status.keyUpActive = true;
+        status.keyReturnActive = true;
+        status.setKeyLabels('OUT3', 'OUT1', 'OUT2', 'OUT0');
+    }
+
+    function _hide() {
+        status.setKeyLabels();
+    }
+
     Connections {
         target: personality
         onGpioInputsChanged: {
@@ -81,8 +98,8 @@ View {
             Rectangle {
                 Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out0Prop ? "#aa0000" : "#222222"
                 border.color: "white"; border.width: 1
-                Label { text: "OUT0:" + (out0Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(0, !out0Prop) }
+                Label { text: "OUT0(RET):" + (out0Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: { console.log("QML: Clicked OUT0!"); personality.setOutput(0, !out0Prop) } }
             }
 
             // Row 1
@@ -94,8 +111,8 @@ View {
             Rectangle {
                 Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out1Prop ? "#aa0000" : "#222222"
                 border.color: "white"; border.width: 1
-                Label { text: "OUT1:" + (out1Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(1, !out1Prop) }
+                Label { text: "OUT1(DN):" + (out1Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: { console.log("QML: Clicked OUT1!"); personality.setOutput(1, !out1Prop) } }
             }
 
             // Row 2
@@ -107,8 +124,8 @@ View {
             Rectangle {
                 Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out2Prop ? "#aa0000" : "#222222"
                 border.color: "white"; border.width: 1
-                Label { text: "OUT2:" + (out2Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(2, !out2Prop) }
+                Label { text: "OUT2(UP):" + (out2Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: { console.log("QML: Clicked OUT2!"); personality.setOutput(2, !out2Prop) } }
             }
 
             // Row 3
@@ -120,8 +137,8 @@ View {
             Rectangle {
                 Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out3Prop ? "#aa0000" : "#222222"
                 border.color: "white"; border.width: 1
-                Label { text: "OUT3:" + (out3Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(3, !out3Prop) }
+                Label { text: "OUT3(ESC):" + (out3Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: { console.log("QML: Clicked OUT3!"); personality.setOutput(3, !out3Prop) } }
             }
             
             Item { Layout.fillHeight: true }
