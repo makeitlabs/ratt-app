@@ -79,7 +79,11 @@ ApplicationWindow {
                 switch (state) {
                 case "Idle":
                 case "NotPowered":
-                    switchTo(viewIdle);
+                    if (config.Personality_Class == "HardwareSetup") {
+                        switchTo(viewHardwareSetup);
+                    } else {
+                        switchTo(viewIdle);
+                    }
                     break;
                 case "IdleBusy":
                     switch (idleBusyView) {
@@ -312,6 +316,10 @@ ApplicationWindow {
                 }
                 ViewIssue {
                     id: viewIssue
+                    visible: false
+                }
+                ViewHardwareSetup {
+                    id: viewHardwareSetup
                     visible: false
                 }
                 ViewPowerLoss {
