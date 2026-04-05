@@ -6,6 +6,7 @@ from PersonalityBase import PersonalityBase
 class Personality(PersonalityBase):
     PERSONALITY_DESCRIPTION = 'Hardware Setup Personality'
 
+    STATE_INIT = 'Init'
     STATE_IDLE = 'Idle'
 
     gpioInputsChanged = pyqtSignal(bool, bool, bool, bool, arguments=['in0_val', 'in1_val', 'in2_val', 'in3_val'])
@@ -15,7 +16,11 @@ class Personality(PersonalityBase):
         super().__init__(*args, **kwargs)
 
         self.states = {
-            self.STATE_IDLE: self.stateIdle
+            self.STATE_INIT: self.stateInit,
+            self.STATE_IDLE: self.stateIdle,
+            self.STATE_POWER_LOSS: self.statePowerLoss,
+            self.STATE_SHUT_DOWN: self.stateShutDown,
+            self.STATE_LOCK_OUT: self.stateLockOut
         }
 
         self.state = self.STATE_IDLE
@@ -46,6 +51,9 @@ class Personality(PersonalityBase):
             self.pins_out[index].set(HIGH if value else LOW)
             self.updateAllGPIO() # Broadcast new states
 
+    def stateInit(self):
+        return self.goto(self.STATE_IDLE)
+
     def stateIdle(self):
         if self.phENTER:
             self.updateAllGPIO()
@@ -60,3 +68,13 @@ class Personality(PersonalityBase):
         elif self.phEXIT:
             self.pin_led1.set(LOW)
             return self.goNextState()
+
+    def statePowerLoss(self):
+        return self.goto(self.STATE_IDLE)
+
+    def stateShutDown(self):
+        self.app.shutdown()
+        return False
+
+    def stateLockOut(self):
+        return self.goto(self.STATE_IDLE)

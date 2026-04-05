@@ -45,152 +45,86 @@ View {
         }
     }
 
-    Component {
-        id: indicatorStyle
-        Rectangle {
-            width: 80
-            height: 30
-            color: activeState ? "red" : "#222222"
-            border.color: "white"
-            border.width: 1
-            property bool activeState: false
-            Label {
-                anchors.centerIn: parent
-                text: activeState ? "HIGH" : "LOW"
-                color: "white"
-                font.bold: true
-            }
-        }
-    }
+    // indicatorStyle removed as we now inline the Rectangles for better compact formatting
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 10
+        anchors.margins: 2
+        spacing: 2
 
         Label {
             Layout.fillWidth: true
-            text: "Hardware Setup Mode"
+            text: netWorker ? ("IP: " + netWorker.currentIfcAddr) : "IP: Checking..."
             horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 24
-            font.weight: Font.Bold
-            color: "#ffff00"
-        }
-
-        Label {
-            Layout.fillWidth: true
-            text: "IP Address: " + (netWorker ? netWorker.currentIfcAddr : "Checking...")
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 18
+            font.pixelSize: 10
             color: "#00ffff"
+            font.bold: true
         }
-
-        Item { Layout.preferredHeight: 10 }
 
         GridLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             columns: 2
-            columnSpacing: 10
+            columnSpacing: 4
+            rowSpacing: 4
 
-            // INPUTS
+            // Headers
+            Label { text: "INPUTS"; font.pixelSize: 10; color: "yellow"; font.bold: true; Layout.alignment: Qt.AlignHCenter }
+            Label { text: "OUTPUTS"; font.pixelSize: 10; color: "yellow"; font.bold: true; Layout.alignment: Qt.AlignHCenter }
+
+            // Row 0
             Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#111111"
-                border.width: 2
-                border.color: "#444444"
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: "GPIO Inputs (Dynamic)"
-                        font.pixelSize: 16
-                        font.bold: true
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    // IN0
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_InputNames[0] ? config.GPIO_InputNames[0] : "") + " (IN0)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Loader { sourceComponent: indicatorStyle; property bool activeState: in0Prop }
-                    }
-                    // IN1
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_InputNames[1] ? config.GPIO_InputNames[1] : "") + " (IN1)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Loader { sourceComponent: indicatorStyle; property bool activeState: in1Prop }
-                    }
-                    // IN2
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_InputNames[2] ? config.GPIO_InputNames[2] : "") + " (IN2)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Loader { sourceComponent: indicatorStyle; property bool activeState: in2Prop }
-                    }
-                    // IN3
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_InputNames[3] ? config.GPIO_InputNames[3] : "") + " (IN3)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Loader { sourceComponent: indicatorStyle; property bool activeState: in3Prop }
-                    }
-                    
-                    Item { Layout.fillHeight: true }
-                }
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: in0Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "IN0:" + (in0Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+            }
+            Rectangle {
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out0Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "OUT0:" + (out0Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(0, !out0Prop) }
             }
 
-            // OUTPUTS
+            // Row 1
             Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#111111"
-                border.width: 2
-                border.color: "#444444"
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: "GPIO Outputs (Click to Toggle)"
-                        font.pixelSize: 16
-                        font.bold: true
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    // OUT0
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_OutputNames[0] ? config.GPIO_OutputNames[0] : "") + " (OUT0)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Button { width: 80; text: out0Prop ? "HIGH" : "LOW"; onClicked: { personality.setOutput(0, !out0Prop) } }
-                    }
-                    // OUT1
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_OutputNames[1] ? config.GPIO_OutputNames[1] : "") + " (OUT1)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Button { width: 80; text: out1Prop ? "HIGH" : "LOW"; onClicked: { personality.setOutput(1, !out1Prop) } }
-                    }
-                    // OUT2
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_OutputNames[2] ? config.GPIO_OutputNames[2] : "") + " (OUT2)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Button { width: 80; text: out2Prop ? "HIGH" : "LOW"; onClicked: { personality.setOutput(2, !out2Prop) } }
-                    }
-                    // OUT3
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label { text: (config.GPIO_OutputNames[3] ? config.GPIO_OutputNames[3] : "") + " (OUT3)"; color: "white"; font.pixelSize: 14; Layout.fillWidth: true }
-                        Button { width: 80; text: out3Prop ? "HIGH" : "LOW"; onClicked: { personality.setOutput(3, !out3Prop) } }
-                    }
-                    
-                    Item { Layout.fillHeight: true }
-                }
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: in1Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "IN1:" + (in1Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
             }
+            Rectangle {
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out1Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "OUT1:" + (out1Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(1, !out1Prop) }
+            }
+
+            // Row 2
+            Rectangle {
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: in2Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "IN2:" + (in2Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+            }
+            Rectangle {
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out2Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "OUT2:" + (out2Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(2, !out2Prop) }
+            }
+
+            // Row 3
+            Rectangle {
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: in3Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "IN3:" + (in3Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+            }
+            Rectangle {
+                Layout.preferredWidth: 72; Layout.preferredHeight: 18; color: out3Prop ? "#aa0000" : "#222222"
+                border.color: "white"; border.width: 1
+                Label { text: "OUT3:" + (out3Prop ? "HI" : "LO"); color: "white"; anchors.centerIn:parent; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: personality.setOutput(3, !out3Prop) }
+            }
+            
+            Item { Layout.fillHeight: true }
         }
     }
 }
