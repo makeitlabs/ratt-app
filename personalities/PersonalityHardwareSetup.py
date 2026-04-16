@@ -32,10 +32,10 @@ class Personality(PersonalityBase):
         # Notify QML of input states
         # pins_in[].get() returns python int matching sysfs
         self.gpioInputsChanged.emit(
-            bool(self.pins_in[0].get() == int(HIGH)),
-            bool(self.pins_in[1].get() == int(HIGH)),
-            bool(self.pins_in[2].get() == int(HIGH)),
-            bool(self.pins_in[3].get() == int(HIGH))
+            bool(self.pins_in[0].get() == int(LOW)),
+            bool(self.pins_in[1].get() == int(LOW)),
+            bool(self.pins_in[2].get() == int(LOW)),
+            bool(self.pins_in[3].get() == int(LOW))
         )
         
         # Notify QML of output states

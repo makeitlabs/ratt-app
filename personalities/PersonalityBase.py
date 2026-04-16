@@ -277,15 +277,28 @@ class PersonalityBase(PersonalityStateMachine):
                                     self.GPIO_PIN_OUT2,
                                     self.GPIO_PIN_OUT3]
 
-        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN0, GPIO.INPUT, self.__pinchanged, GPIO.BOTH))
-        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN1, GPIO.INPUT, self.__pinchanged, GPIO.BOTH))
-        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN2, GPIO.INPUT, self.__pinchanged, GPIO.BOTH))
-        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN3, GPIO.INPUT, self.__pinchanged, GPIO.BOTH))
+        try:
+            in_active_low = [int(x.strip()) for x in self.app.config.value('GPIO.InputActiveLow').split(',')]
+        except Exception:
+            in_active_low = [0, 0, 0, 0]
+            
+        try:
+            out_active_low = [int(x.strip()) for x in self.app.config.value('GPIO.OutputActiveLow').split(',')]
+        except Exception:
+            out_active_low = [0, 0, 0, 0]
+            
+        in_active_low.extend([0] * max(0, 4 - len(in_active_low)))
+        out_active_low.extend([0] * max(0, 4 - len(out_active_low)))
 
-        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT0, GPIO.OUTPUT))
-        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT1, GPIO.OUTPUT))
-        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT2, GPIO.OUTPUT))
-        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT3, GPIO.OUTPUT))
+        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN0, GPIO.INPUT, self.__pinchanged, GPIO.BOTH, active_low=in_active_low[0]))
+        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN1, GPIO.INPUT, self.__pinchanged, GPIO.BOTH, active_low=in_active_low[1]))
+        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN2, GPIO.INPUT, self.__pinchanged, GPIO.BOTH, active_low=in_active_low[2]))
+        self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN3, GPIO.INPUT, self.__pinchanged, GPIO.BOTH, active_low=in_active_low[3]))
+
+        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT0, GPIO.OUTPUT, active_low=out_active_low[0]))
+        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT1, GPIO.OUTPUT, active_low=out_active_low[1]))
+        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT2, GPIO.OUTPUT, active_low=out_active_low[2]))
+        self.pins_out.append(self.gpio.alloc_pin(self.GPIO_PIN_OUT3, GPIO.OUTPUT, active_low=out_active_low[3]))
 
         self.pin_led1 = self.gpio.alloc_pin(self.GPIO_PIN_LED1, GPIO.OUTPUT, active_low=1)
         self.pin_led2 = self.gpio.alloc_pin(self.GPIO_PIN_LED2, GPIO.OUTPUT, active_low=1)

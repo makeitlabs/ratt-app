@@ -87,3 +87,4 @@ When deploying this application - to get it to run smoothly, you must...
   5. `BrokerHost=mqtt` to match server previously in `/etc/hosts`
   6. `BrokerPort=8883` for standard internal MakeIt MQTTS
 
+For a detailed guide on configuration options, including hardware pin inversion/polarities, see [CONFIG.md](CONFIG.md).

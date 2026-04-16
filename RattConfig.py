@@ -183,6 +183,14 @@ class RattConfig(QObject):
     def GPIO_OutputNames(self):
         return self.config['GPIO.OutputNames'].split(',')
 
+    @pyqtProperty(list, notify=configChanged)
+    def GPIO_InputActiveLow(self):
+        return [int(x.strip()) for x in self.config['GPIO.InputActiveLow'].split(',')]
+
+    @pyqtProperty(list, notify=configChanged)
+    def GPIO_OutputActiveLow(self):
+        return [int(x.strip()) for x in self.config['GPIO.OutputActiveLow'].split(',')]
+
     @pyqtProperty(str, notify=configChanged)
     def Personality_Class(self):
         return self.config['Personality.Class']
@@ -432,6 +440,8 @@ class RattConfig(QObject):
         self.addConfigBool('GPIO', 'Simulated', False)
         self.addConfig('GPIO', 'InputNames', 'IN1,IN2,IN3,IN4')
         self.addConfig('GPIO', 'OutputNames', 'OUT1,OUT2,OUT3,OUT4')
+        self.addConfig('GPIO', 'InputActiveLow', '0,0,0,0')
+        self.addConfig('GPIO', 'OutputActiveLow', '0,0,0,0')
 
         self.addSection('Log')
         self.addConfig('Log', 'File')
