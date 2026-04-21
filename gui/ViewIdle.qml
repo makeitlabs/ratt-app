@@ -429,7 +429,8 @@ View {
                 Layout.fillWidth: true
                 text: "Hold down yellow"
                 horizontalAlignment: Text.AlignLeft
-                font.pixelSize: 12
+                wrapMode: Text.Wrap
+                font.pixelSize: 11
                 font.weight: Font.Bold
                 color: "#444444"
             }
@@ -437,7 +438,8 @@ View {
                 Layout.fillWidth: true
                 text: "button to file report"
                 horizontalAlignment: Text.AlignLeft
-                font.pixelSize: 12
+                wrapMode: Text.Wrap
+                font.pixelSize: 11
                 font.weight: Font.Bold
                 color: "#444444"
             }

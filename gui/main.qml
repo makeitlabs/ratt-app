@@ -54,7 +54,10 @@ ApplicationWindow {
     // Scale specifically for the target TFT display bounds (as sometimes this is mirrored via fbcp within a larger HDMI ApplicationWindow)
     property real targetTftWidth: (typeof config !== "undefined" && config.General_TftWidth > 0) ? config.General_TftWidth : 160
     property real targetTftHeight: (typeof config !== "undefined" && config.General_TftHeight > 0) ? config.General_TftHeight : 128
-    property real scaleFactor: Math.min(targetTftWidth / 160, targetTftHeight / 128)
+    
+    // Dynamically calculate raw scale, but safely trim 10% (0.9) exclusively on wider screens to preserve visual margins!
+    property real rawScale: Math.min(targetTftWidth / 160, targetTftHeight / 128)
+    property real scaleFactor: rawScale > 1.0 ? rawScale * 0.9 : rawScale
 
     Component.onCompleted: {
         appWindow.uiEvent.connect(personality.slotUIEvent)
@@ -183,19 +186,20 @@ ApplicationWindow {
 
     Rectangle {
         id: root
-        anchors.top: parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.centerIn: parent
         color: "black"
-        width: (tftWindow.width + 20) * appWindow.scaleFactor
-        height: (tftWindow.height + 20) * appWindow.scaleFactor
+        width: appWindow.targetTftWidth
+        height: appWindow.targetTftHeight
 
         Item {
             id: tftWindow
             focus: true
             anchors.centerIn: parent
             scale: appWindow.scaleFactor
-            width: 160
-            height: 128
+            
+            // Natively extract dynamic component geometry inversely from scaling wrapper
+            width: parent.width / scale
+            height: parent.height / scale
 
             RattToolBar {
                 id: tool

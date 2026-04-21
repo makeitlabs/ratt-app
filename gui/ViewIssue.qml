@@ -204,7 +204,6 @@ View {
                 color: styleData.textColor
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: 10
-                height: 10
             }
 
             Keys.onPressed: {
