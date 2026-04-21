@@ -175,6 +175,14 @@ class RattConfig(QObject):
     def General_Diags(self):
         return self.config['General.Diags']
 
+    @pyqtProperty(int, notify=configChanged)
+    def General_TftWidth(self):
+        return self.config['General.TftWidth']
+
+    @pyqtProperty(int, notify=configChanged)
+    def General_TftHeight(self):
+        return self.config['General.TftHeight']
+
     @pyqtProperty(list, notify=configChanged)
     def GPIO_InputNames(self):
         return self.config['GPIO.InputNames'].split(',')
@@ -420,6 +428,8 @@ class RattConfig(QObject):
 
         self.addSection('General')
         self.addConfigBool('General', 'Diags', True)
+        self.addConfigInt('General', 'TftWidth', 160)
+        self.addConfigInt('General', 'TftHeight', 128)
         self.addConfig('General', 'ToolDesc', 'Tool')
         self.addConfig('General', 'NetworkInterfaceName', 'wlan0')
         self.addConfig('General', 'NodeId', None)

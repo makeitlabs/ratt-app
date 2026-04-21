@@ -50,6 +50,11 @@ ApplicationWindow {
     signal mqttPublishSubtopicEvent(string subtopic, string msg)
 
     property string idleBusyView: ""
+    
+    // Scale specifically for the target TFT display bounds (as sometimes this is mirrored via fbcp within a larger HDMI ApplicationWindow)
+    property real targetTftWidth: (typeof config !== "undefined" && config.General_TftWidth > 0) ? config.General_TftWidth : 160
+    property real targetTftHeight: (typeof config !== "undefined" && config.General_TftHeight > 0) ? config.General_TftHeight : 128
+    property real scaleFactor: Math.min(targetTftWidth / 160, targetTftHeight / 128)
 
     Component.onCompleted: {
         appWindow.uiEvent.connect(personality.slotUIEvent)
@@ -181,13 +186,14 @@ ApplicationWindow {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         color: "black"
-        width: tftWindow.width + 20
-        height: tftWindow.height + 20
+        width: (tftWindow.width + 20) * appWindow.scaleFactor
+        height: (tftWindow.height + 20) * appWindow.scaleFactor
 
         Item {
             id: tftWindow
             focus: true
             anchors.centerIn: parent
+            scale: appWindow.scaleFactor
             width: 160
             height: 128
 
@@ -338,12 +344,12 @@ ApplicationWindow {
     Label {
       id: mver
       width: 150
-      anchors.top: parent.top
+      anchors.top: root.bottom
       anchors.left: parent.left
       anchors.margins: 5
       font.family: "mono"
       font.weight: Font.Bold
-      font.pixelSize: 14
+      font.pixelSize: Math.max(10, 14 * appWindow.scaleFactor)
       color: "#00ffff"
       text: "Mender Artifact=" + menderArtifact
     }
@@ -355,7 +361,7 @@ ApplicationWindow {
       anchors.margins: 5
       font.family: "mono"
       font.weight: Font.Bold
-      font.pixelSize: 14
+      font.pixelSize: Math.max(10, 14 * appWindow.scaleFactor)
       color: "#ffff00"
       text: "App Version=" + appVersion
     }

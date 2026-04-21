@@ -66,6 +66,12 @@ class PersonalityBase(PersonalityStateMachine):
     GPIO_PIN_LED1 = 508
     GPIO_PIN_LED2 = 509
 
+    # NATIVE BUTTON PADDING (Expander Offsets 8, 9, 10, 11)
+    GPIO_PIN_BTN_ESC = 504
+    GPIO_PIN_BTN_DOWN = 505
+    GPIO_PIN_BTN_UP = 506
+    GPIO_PIN_BTN_ENTER = 507
+
     pinToName = {GPIO_PIN_SHUTDOWN : 'SHUTDOWN',
                  GPIO_PIN_POWER_PRESENT : 'POWER_PRESENT',
                  GPIO_PIN_CHARGE_STATE : 'CHARGE_STATE',
@@ -178,9 +184,14 @@ class PersonalityBase(PersonalityStateMachine):
 
         try:
             self._init_gpio_pins()
-        except:
-            self.logger.error('Error initializing GPIO pins.')
+        except Exception as e:
+            self.logger.error('Error initializing GPIO pins: ' + str(e))
             self.logger.warning('Falling back to simulated GPIO.')
+            
+            # CLEAR THE PARTIALLY-FILLED ARRAYS BEFORE RE-ENTERING!
+            self.pins_in = []
+            self.pins_out = []
+            
             self.gpio = SimGPIO.Controller()
             self._simGPIO = True
             self._init_gpio_pins()
@@ -275,7 +286,11 @@ class PersonalityBase(PersonalityStateMachine):
                                     self.GPIO_PIN_OUT0,
                                     self.GPIO_PIN_OUT1,
                                     self.GPIO_PIN_OUT2,
-                                    self.GPIO_PIN_OUT3]
+                                    self.GPIO_PIN_OUT3,
+                                    self.GPIO_PIN_BTN_ESC,
+                                    self.GPIO_PIN_BTN_DOWN,
+                                    self.GPIO_PIN_BTN_UP,
+                                    self.GPIO_PIN_BTN_ENTER]
 
         self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN0, GPIO.INPUT, self.__pinchanged, GPIO.BOTH))
         self.pins_in.append(self.gpio.alloc_pin(self.GPIO_PIN_IN1, GPIO.INPUT, self.__pinchanged, GPIO.BOTH))
@@ -295,6 +310,12 @@ class PersonalityBase(PersonalityStateMachine):
 
         self.pin_powerpresent = self.gpio.alloc_pin(self.GPIO_PIN_POWER_PRESENT, GPIO.INPUT, self.__power_event, GPIO.BOTH)
         self.pin_charge_state = self.gpio.alloc_pin(self.GPIO_PIN_CHARGE_STATE, GPIO.INPUT)
+
+        try:
+            self._init_native_keypad()
+        except Exception as e:
+            import traceback
+            self.logger.error("NATIVE KEYPAD CRASHED: " + traceback.format_exc())
 
         self.nameToPinObject = {'SHUTDOWN' : self.pin_shutdown,
                                 'POWER_PRESENT' : self.pin_powerpresent,
@@ -446,3 +467,58 @@ class PersonalityBase(PersonalityStateMachine):
     def __slotStateChanged(self, state, phase):
         self.telemetryEvent.emit('personality/state', json.dumps({ 'state': state, 'phase': phase}))
         self.app.rfid.serialOut('%s.%s\n' % (state, phase))
+
+    def _init_native_keypad(self):
+        """Bakes the broken 16-bit IO Expander Keypad interrupts entirely into a pure native QTimer polling bypass!"""
+        from PyQt5.QtCore import QTimer, Qt
+
+        # Allocate standard polling pins without Edge interrupts
+        self.keypad_pins = {
+            self.GPIO_PIN_BTN_ESC: self.gpio.alloc_pin(self.GPIO_PIN_BTN_ESC, GPIO.INPUT, active_low=1),
+            self.GPIO_PIN_BTN_DOWN: self.gpio.alloc_pin(self.GPIO_PIN_BTN_DOWN, GPIO.INPUT, active_low=1),
+            self.GPIO_PIN_BTN_UP: self.gpio.alloc_pin(self.GPIO_PIN_BTN_UP, GPIO.INPUT, active_low=1),
+            self.GPIO_PIN_BTN_ENTER: self.gpio.alloc_pin(self.GPIO_PIN_BTN_ENTER, GPIO.INPUT, active_low=1)
+        }
+
+        self.keypad_codes = {
+            self.GPIO_PIN_BTN_ESC: Qt.Key_Escape,
+            self.GPIO_PIN_BTN_DOWN: Qt.Key_Down,
+            self.GPIO_PIN_BTN_UP: Qt.Key_Up,
+            self.GPIO_PIN_BTN_ENTER: Qt.Key_Return
+        }
+
+        self.keypad_last_state = {pin: False for pin in self.keypad_codes.keys()}
+        self.keypad_consecutive = {pin: 0 for pin in self.keypad_codes.keys()}
+
+        self.keypad_timer = QTimer(self)
+        self.keypad_timer.timeout.connect(self._poll_native_keypad)
+        self.keypad_timer.start(20)  # Polling Interval: 20ms
+
+    def _poll_native_keypad(self):
+        from PyQt5.QtGui import QGuiApplication, QKeyEvent
+        from PyQt5.QtCore import QCoreApplication, QEvent, Qt
+
+        window = QGuiApplication.instance().focusWindow()
+        if not window:
+            return
+
+        for p_id, pin_obj in self.keypad_pins.items():
+            try:
+                current_raw = (pin_obj.get() == 1)
+                
+                if current_raw != self.keypad_last_state[p_id]:
+                    self.keypad_consecutive[p_id] += 1
+                    if self.keypad_consecutive[p_id] >= 3:
+                        self.keypad_last_state[p_id] = current_raw
+                        self.keypad_consecutive[p_id] = 0
+                        
+                        # Generate Qt NATIVE KeyEvent directly into the QML window Event loop!
+                        key = self.keypad_codes[p_id]
+                        event_type = QEvent.KeyPress if current_raw else QEvent.KeyRelease
+                        
+                        ev = QKeyEvent(event_type, key, Qt.NoModifier)
+                        QCoreApplication.postEvent(window, ev)
+                else:
+                    self.keypad_consecutive[p_id] = 0
+            except Exception as e:
+                self.logger.debug(f'Keypad poll error {p_id}: {e}')

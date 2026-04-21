@@ -75,7 +75,7 @@ EDGES = (RISING, FALLING, BOTH)
 ACTIVE_LOW_MODES = (ACTIVE_LOW_ON, ACTIVE_LOW_OFF)
 
 
-class Pin(object):
+class SysfsPin(object):
     # Represent a pin in SysFS
 
     def __init__(self, number, direction, callback=None, edge=None, active_low=0):
@@ -200,7 +200,7 @@ class Pin(object):
         return SYSFS_GPIO_ACTIVE_LOW_PATH % self.number
 
 
-class Controller(QThread):
+class SysfsController(QThread):
     # A class to provide access to SysFS GPIO pins
     def __init__(self, loglevel='DEBUG'):
         QThread.__init__(self)
@@ -269,7 +269,7 @@ class Controller(QThread):
         else:
             self.logger.debug("Pin %d already exported" % number)
 
-        pin = Pin(number, direction, callback, edge, active_low)
+        pin = SysfsPin(number, direction, callback, edge, active_low)
 
         if direction is INPUT:
             self._poll_queue_register_pin(pin)
@@ -382,8 +382,296 @@ class Controller(QThread):
         if number not in self._available_pins:
             raise Exception("Pin number out of range")
 
-        if number in self._allocated_pins:
+        if number not in self._allocated_pins:
             raise Exception("Pin already allocated")
+
+try:
+    import gpiod
+    HAVE_GPIOD = True
+except ImportError:
+    HAVE_GPIOD = False
+
+if HAVE_GPIOD:
+    import glob
+    class GpiodPin(object):
+        def __init__(self, number, direction, callback=None, edge=None, active_low=0):
+            self._number = number
+            self._direction = direction
+            self._callback = callback
+            self._active_low = active_low
+            
+            # Map legacy sysfs global offset to a gpiod chip and line
+            chip_name = "0"
+            offset = number
+            sysfs_mapped = False
+            for path in glob.glob('/sys/class/gpio/gpiochip*'):
+                try:
+                    with open(path + '/base', 'r') as f:
+                        base = int(f.read().strip())
+                    with open(path + '/ngpio', 'r') as f:
+                        ngpio = int(f.read().strip())
+                    if base <= number < base + ngpio:
+                        # Extract "gpiochipX" or use its numbered index directly
+                        # But gpiod sometimes handles 'gpiochipX' by name smoothly
+                        chip_name = path.split('/')[-1]
+                        if chip_name.startswith('gpiochip'):
+                            chip_name = chip_name.replace('gpiochip', '')
+                        offset = number - base
+                        sysfs_mapped = True
+                        break
+                except:
+                    continue
+
+            if not sysfs_mapped:
+                # Toplogical Geometry Fallback 
+                # If SysFS is missing or disabled (modern OS standards), identify chip by line-count signatures!
+                import os
+                if number >= 496:
+                    # RATT 16-bit Hardware Expander Layout
+                    offset = number - 496
+                    t_min, t_max = 16, 16 
+                else:
+                    # RPi Core SoC
+                    offset = number
+                    t_min, t_max = 50, 60
+                
+                found_match = False
+                for p in glob.glob('/dev/gpiochip*'):
+                    try:
+                        c = gpiod.Chip(p)
+                        n_lines = -1
+                        if hasattr(c, "get_info"):
+                            n_lines = c.get_info().num_lines
+                        elif hasattr(c, "num_lines"):
+                            n_lines = c.num_lines() if callable(c.num_lines) else c.num_lines
+                        c.close()
+
+                        if t_min <= n_lines <= t_max:
+                            chip_name = p
+                            found_match = True
+                            break
+                    except:
+                        pass
+                
+                if not found_match:
+                    chip_name = "/dev/gpiochip0"
+
+            try:
+                self._chip = gpiod.Chip(chip_name)
+            except:
+                try:
+                    self._chip = gpiod.Chip("gpiochip0")
+                except:
+                    self._chip = gpiod.Chip("/dev/gpiochip0")
+                offset = number
+            
+            self._offset = offset
+
+            # check for libgpiod v1 vs v2
+            self._is_v2 = not hasattr(self._chip, "get_line")
+
+            if self._is_v2:
+                from gpiod.line import Direction, Edge, Value
+                
+                direction_val = Direction.OUTPUT if direction == OUTPUT else Direction.INPUT
+                edge_val = Edge.NONE
+                
+                if direction == INPUT and callback and edge:
+                    if edge == BOTH:
+                        edge_val = Edge.BOTH
+                    elif edge == RISING:
+                        edge_val = Edge.RISING
+                    elif edge == FALLING:
+                        edge_val = Edge.FALLING
+                        
+                settings = gpiod.LineSettings(
+                    direction=direction_val,
+                    edge_detection=edge_val,
+                    active_low=bool(active_low)
+                )
+                
+                self._req = self._chip.request_lines(
+                    consumer="ratt-gpio",
+                    config={offset: settings}
+                )
+            else:
+                self._line = self._chip.get_line(offset)
+    
+                req_type = gpiod.LINE_REQ_DIR_OUT if direction == OUTPUT else gpiod.LINE_REQ_DIR_IN
+                flags = gpiod.LINE_REQ_FLAG_ACTIVE_LOW if active_low else 0
+    
+                if direction == INPUT and callback and edge:
+                    if edge == BOTH:
+                        req_type = gpiod.LINE_REQ_EV_BOTH_EDGES
+                    elif edge == RISING:
+                        req_type = gpiod.LINE_REQ_EV_RISING_EDGE
+                    elif edge == FALLING:
+                        req_type = gpiod.LINE_REQ_EV_FALLING_EDGE
+    
+                self._line.request(consumer="ratt-gpio", type=req_type, flags=flags)
+
+        @property
+        def callback(self): return self._callback
+        @callback.setter
+        def callback(self, value): self._callback = value
+        @property
+        def direction(self): return self._direction
+        @property
+        def number(self): return self._number
+        @property
+        def active_low(self): return self._active_low
+
+        def set(self, value):
+            if self._is_v2:
+                from gpiod.line import Value
+                self._req.set_value(self._offset, Value.ACTIVE if value else Value.INACTIVE)
+            else:
+                self._line.set_value(1 if value else 0)
+
+        def get(self):
+            if self._is_v2:
+                from gpiod.line import Value
+                return 1 if self._req.get_values()[0] == Value.ACTIVE else 0
+            else:
+                return self._line.get_value()
+
+        def fileno(self):
+            if self._is_v2:
+                return self._req.fd
+            else:
+                return self._line.event_get_fd()
+
+        def changed(self, state):
+            if callable(self._callback):
+                if self._is_v2:
+                    try:
+                        self._req.read_edge_events()
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self._line.event_read()
+                    except Exception:
+                        pass
+                self._callback(self.number, state)
+
+        def release(self):
+            if self._is_v2:
+                self._req.release()
+            else:
+                self._line.release()
+            self._chip.close()
+
+    class GpiodController(QThread):
+        def __init__(self, loglevel='DEBUG'):
+            QThread.__init__(self)
+            self.logger = Logger(name='ratt.qgpio.gpiod')
+            self.logger.setLogLevelStr(loglevel)
+            self.debug = self.logger.isDebug()
+
+            self._poll_queue = select.epoll()
+            self._allocated_pins = {}
+            self._available_pins = []
+            self._running = True
+
+            self.start()
+
+        def run(self):
+            self.logger.debug('running (gpiod mode)')
+            while self._running:
+                try:
+                    events = self._poll_queue.poll(EPOLL_TIMEOUT)
+                except IOError as error:
+                    if error.errno != errno.EINTR:
+                        self.logger.error(repr(error))
+                        self._running = False
+                if len(events) > 0:
+                    self._poll_queue_event(events)
+
+        @property
+        def available_pins(self): return self._available_pins
+        @available_pins.setter
+        def available_pins(self, value): self._available_pins = value
+
+        def stop(self):
+            self._running = False
+            try:
+                values = self._allocated_pins.copy().itervalues()
+            except AttributeError:
+                values = self._allocated_pins.copy().values()
+            for pin in values:
+                self.dealloc_pin(pin.number)
+
+        def alloc_pin(self, number, direction, callback=None, edge=None, active_low=0):
+            self.logger.debug('alloc_pin(%d, %s)' % (number, direction))
+            
+            try:
+                if number not in self._available_pins:
+                    raise Exception("Pin number out of range")
+                if number in self._allocated_pins:
+                    raise Exception("Pin already allocated")
+                    
+                pin = GpiodPin(number, direction, callback, edge, active_low)
+                
+                if direction == INPUT and callback and edge:
+                    # the fd from gpiod is epoll EPOLLIN compliant rather than EPOLLPRI file-bounds
+                    self._poll_queue.register(pin, (select.EPOLLIN | select.EPOLLET))
+
+                self._allocated_pins[number] = pin
+                return pin
+            except Exception as e:
+                self.logger.error('Failed allocating pin %d: %s' % (number, str(e)))
+                raise
+
+        def dealloc_pin(self, number):
+            if number not in self._allocated_pins:
+                raise Exception('Pin %d not allocated' % number)
+
+            pin = self._allocated_pins[number]
+            if pin.direction == INPUT and pin.callback:
+                self._poll_queue.unregister(pin)
+                
+            pin.release()
+            del self._allocated_pins[number]
+
+        def get_pin(self, number):
+            return self._allocated_pins[number]
+
+        def set_pin(self, number):
+            if number not in self._allocated_pins:
+                raise Exception('Pin %d not allocated' % number)
+            self._allocated_pins[number].set(HIGH)
+
+        def reset_pin(self, number):
+            if number not in self._allocated_pins:
+                raise Exception('Pin %d not allocated' % number)
+            self._allocated_pins[number].set(LOW)
+
+        def get_pin_state(self, number):
+            if number not in self._allocated_pins:
+                raise Exception('Pin %d not allocated' % number)
+            # Modern char dev native reads no longer need deregister-read-reregister bounding loops
+            pin = self._allocated_pins[number]
+            return pin.get() > 0
+
+        def _poll_queue_event(self, events):
+            for fd, event in events:
+                if not (event & (select.EPOLLIN | select.EPOLLET)):
+                    continue
+                try:
+                    values = self._allocated_pins.itervalues()
+                except AttributeError:
+                    values = self._allocated_pins.values()
+                for pin in values:
+                    if pin.direction == INPUT and pin.callback and pin.fileno() == fd:
+                        pin.changed(pin.get())
+
+    Controller = GpiodController
+    Pin = GpiodPin
+
+else:
+    Controller = SysfsController
+    Pin = SysfsPin
 
 if __name__ == '__main__':
     print("This module isn't intended to be run directly.")
