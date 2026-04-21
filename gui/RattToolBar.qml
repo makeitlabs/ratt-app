@@ -92,6 +92,9 @@ ToolBar {
         anchors.rightMargin: 5
         source: "images/wifi_0.png"
         opacity: 0.2
+        width: 16
+        height: 16
+        fillMode: Image.PreserveAspectFit
     }
 
     Label {

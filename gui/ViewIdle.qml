@@ -286,11 +286,11 @@ View {
         Label {
           visible: isToolPowered
           Layout.fillWidth: true
-          text: "Ready to Scan"
+          text: "Scan Badge to Use"
           horizontalAlignment: Text.AlignHCenter
           font.pixelSize: 13
           font.weight: Font.Medium
-          color: "#00FF66"
+          color: "#d6d6d6"
         }
 
         Label {
@@ -393,7 +393,7 @@ View {
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 14
             font.weight: Font.Medium
-            color: "#FF4444"
+            color: "#86bfff3d"
         }
 
         RowLayout {

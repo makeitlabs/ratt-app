@@ -2,6 +2,8 @@
 
 The core RATT application that controls access to the equipment as well as provides the GUI that the end user sees is written in Python3 and PyQt5/QML.  This runs on the target hardware, and can also be run on a desktop host for more rapid debug and feature development.
 
+See [PiZeroW2Notes.md](PiZeroW2Notes.md) for notes on running on a Pi Zero W2.  
+
 ## Run on Development Host
 
 ### Install prerequisites
