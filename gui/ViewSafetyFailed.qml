@@ -68,7 +68,7 @@ View {
         anchors.fill: parent
         Label {
             Layout.fillWidth: true
-            text: "Safety Check Failed"
+            text: "TURN OFF MACHINE"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 14
             font.weight: Font.Bold
@@ -76,7 +76,7 @@ View {
         }
         Label {
             Layout.fillWidth: true
-            text: "Tool power switch"
+            text: "Power switch must"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 12
             font.weight: Font.DemiBold

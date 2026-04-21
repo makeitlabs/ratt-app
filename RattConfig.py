@@ -191,6 +191,14 @@ class RattConfig(QObject):
     def GPIO_OutputNames(self):
         return self.config['GPIO.OutputNames'].split(',')
 
+    @pyqtProperty(list, notify=configChanged)
+    def GPIO_InputActiveLow(self):
+        return [int(x.strip()) for x in self.config['GPIO.InputActiveLow'].split(',')]
+
+    @pyqtProperty(list, notify=configChanged)
+    def GPIO_OutputActiveLow(self):
+        return [int(x.strip()) for x in self.config['GPIO.OutputActiveLow'].split(',')]
+
     @pyqtProperty(str, notify=configChanged)
     def Personality_Class(self):
         return self.config['Personality.Class']
@@ -218,6 +226,10 @@ class RattConfig(QObject):
     @pyqtProperty(bool, notify=configChanged)
     def Personality_MonitorToolPowerEnabled(self):
         return self.config['Personality.MonitorToolPowerEnabled']
+
+    @pyqtProperty(bool, notify=configChanged)
+    def Personality_PassiveSafetyCheckEnabled(self):
+        return self.config['Personality.PassiveSafetyCheckEnabled']
 
     @pyqtProperty(bool, notify=configChanged)
     def Personality_HomingManualOverrideEnabled(self):
@@ -438,6 +450,8 @@ class RattConfig(QObject):
         self.addConfigBool('GPIO', 'Simulated', False)
         self.addConfig('GPIO', 'InputNames', 'IN1,IN2,IN3,IN4')
         self.addConfig('GPIO', 'OutputNames', 'OUT1,OUT2,OUT3,OUT4')
+        self.addConfig('GPIO', 'InputActiveLow', '0,0,0,0')
+        self.addConfig('GPIO', 'OutputActiveLow', '0,0,0,0')
 
         self.addSection('Log')
         self.addConfig('Log', 'File')
@@ -455,6 +469,11 @@ class RattConfig(QObject):
         self.addConfigBool('Personality', 'MonitorEstopEnabled', False)
         self.addConfigBool('Personality', 'SafetyCheckEnabled', False)
         self.addConfigBool('Personality', 'MonitorToolPowerEnabled', False)
+        self.addConfigBool('Personality', 'PassiveSafetyCheckEnabled', False)
+        self.addConfig('Personality', 'ToolActivePin', 'IN0')
+        self.addConfig('Personality', 'ToolPowerPin', 'IN1')
+        self.addConfig('Personality', 'PassiveSafetyCheckPin', 'IN2')
+        self.addConfig('Personality', 'EstopPin', 'IN3')
         self.addConfigBool('Personality', 'HomingManualOverrideEnabled', False)
         self.addConfigBool('Personality', 'HomingExternalOverrideEnabled', False)
         self.addConfigBool('Personality', 'PasswordEnabled', False)

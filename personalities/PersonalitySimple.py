@@ -65,6 +65,8 @@ class Personality(PersonalityBase):
     STATE_ACCESS_ALLOWED_PASSWORD = 'AccessAllowedPassword'
     STATE_RFID_ERROR = 'RFIDError'
     STATE_WAIT_ESTOP_ACTIVE = 'WaitEstopActive'
+    STATE_PASSIVE_SAFETY_CHECK = 'PassiveSafetyCheck'
+    STATE_PASSIVE_SAFETY_CHECK_FAILED = 'PassiveSafetyCheckFailed'
     STATE_SAFETY_CHECK = 'SafetyCheck'
     STATE_SAFETY_CHECK_PASSED = 'SafetyCheckPassed'
     STATE_SAFETY_CHECK_FAILED = 'SafetyCheckFailed'
@@ -108,6 +110,8 @@ class Personality(PersonalityBase):
                        self.STATE_ACCESS_ALLOWED_PASSWORD : self.stateAccessAllowedPassword,
                        self.STATE_RFID_ERROR : self.stateRFIDError,
                        self.STATE_WAIT_ESTOP_ACTIVE : self.stateWaitEstopActive,
+                       self.STATE_PASSIVE_SAFETY_CHECK : self.statePassiveSafetyCheck,
+                       self.STATE_PASSIVE_SAFETY_CHECK_FAILED : self.statePassiveSafetyCheckFailed,
                        self.STATE_SAFETY_CHECK : self.stateSafetyCheck,
                        self.STATE_SAFETY_CHECK_PASSED : self.stateSafetyCheckPassed,
                        self.STATE_SAFETY_CHECK_FAILED : self.stateSafetyCheckFailed,
@@ -139,6 +143,13 @@ class Personality(PersonalityBase):
         self._monitorEstop =  self.app.config.value('Personality.MonitorEstopEnabled')
         self._performSafetyCheck =  self.app.config.value('Personality.SafetyCheckEnabled')
         self._monitorToolPower = self.app.config.value('Personality.MonitorToolPowerEnabled')
+        self._passiveSafetyCheck = self.app.config.value('Personality.PassiveSafetyCheckEnabled')
+
+        # configurable GPIO pin assignments (resolved via PersonalityBase.nameToPinObject)
+        self._toolActivePinName = self.app.config.value('Personality.ToolActivePin')
+        self._toolPowerPinName = self.app.config.value('Personality.ToolPowerPin')
+        self._passiveCheckPinName = self.app.config.value('Personality.PassiveSafetyCheckPin')
+        self._estopPinName = self.app.config.value('Personality.EstopPin')
 
 
     # initialize gpio pins to a safe 'off' state
@@ -160,17 +171,21 @@ class Personality(PersonalityBase):
         self.logger.debug('DISABLE TOOL')
         self.pins_out[0].set(LOW)
 
-    # returns true if the tool is currently active
+    # returns true if the tool is currently active (current sensor)
     def toolActive(self):
-        return (self.pins_in[0].get() == 0)
+        return (self.nameToPinObject[self._toolActivePinName].get() == 0)
 
     # returns true if the tool is currently powered up
     def toolPowered(self):
-        return (self.pins_in[1].get() == 0)
+        return (self.nameToPinObject[self._toolPowerPinName].get() == 0)
 
     # returns true if the tool's E-Stop loop is latched and ready
     def toolEstopEnabled(self):
-        return (self.pins_in[3].get() == 0)
+        return (self.nameToPinObject[self._estopPinName].get() == 0)
+
+    # returns true if the passive ON-switch interconnect detects the switch is ON
+    def passiveSwitchOn(self):
+        return (self.nameToPinObject[self._passiveCheckPinName].get() == 0)
 
     @pyqtProperty(bool, notify=endorsementsChanged)
     def hasAdvancedEndorsement(self):
@@ -393,13 +408,7 @@ class Personality(PersonalityBase):
 
         elif self.phACTIVE:
             if self.wakereason == self.REASON_UI and self.uievent == 'AccessDone':
-                if self._monitorEstop:
-                    return self.goto(self.STATE_WAIT_ESTOP_ACTIVE)
-                elif self._performSafetyCheck:
-                    return self.exitAndGoto(self.STATE_SAFETY_CHECK)
-                else:
-                    self.enableTool()
-                    return self.exitAndGoto(self.STATE_TOOL_ENABLED_INACTIVE)
+                return self.exitAndGoto(self._nextStateAfterAccess())
 
             return False
 
@@ -413,13 +422,19 @@ class Personality(PersonalityBase):
     def stateAccessAllowedPassword(self):
         self.telemetryEvent.emit('personality/login', json.dumps({'allowed': True, 'member': self.activeMemberRecord.name, 'usedPassword': True}))
         self.activeMemberRecord.loggedIn = True
+        return self.goto(self._nextStateAfterAccess())
+
+    # determine the next state after access is granted, based on enabled checks
+    def _nextStateAfterAccess(self):
         if self._monitorEstop:
-            return self.goto(self.STATE_WAIT_ESTOP_ACTIVE)
+            return self.STATE_WAIT_ESTOP_ACTIVE
+        elif self._passiveSafetyCheck:
+            return self.STATE_PASSIVE_SAFETY_CHECK
         elif self._performSafetyCheck:
-            return self.goto(self.STATE_SAFETY_CHECK)
+            return self.STATE_SAFETY_CHECK
         else:
             self.enableTool()
-            return self.goto(self.STATE_TOOL_ENABLED_INACTIVE)
+            return self.STATE_TOOL_ENABLED_INACTIVE
 
     #############################################
     ## STATE_WAIT_ESTOP_ACTIVE
@@ -432,7 +447,9 @@ class Personality(PersonalityBase):
 
         elif self.phACTIVE:
             if self.toolEstopEnabled():
-                if self._performSafetyCheck:
+                if self._passiveSafetyCheck:
+                    return self.goto(self.STATE_PASSIVE_SAFETY_CHECK)
+                elif self._performSafetyCheck:
                     return self.goto(self.STATE_SAFETY_CHECK)
                 else:
                     self.enableTool()
@@ -452,6 +469,40 @@ class Personality(PersonalityBase):
 
 
     #############################################
+    ## STATE_PASSIVE_SAFETY_CHECK
+    #############################################
+    def statePassiveSafetyCheck(self):
+        # instantaneous check: is the physical ON switch in the ON position?
+        if self.passiveSwitchOn():
+            self.disableTool()
+            return self.goto(self.STATE_PASSIVE_SAFETY_CHECK_FAILED)
+        else:
+            if self._performSafetyCheck:
+                return self.goto(self.STATE_SAFETY_CHECK)
+            else:
+                self.enableTool()
+                return self.goto(self.STATE_TOOL_ENABLED_INACTIVE)
+
+    #############################################
+    ## STATE_PASSIVE_SAFETY_CHECK_FAILED
+    #############################################
+    def statePassiveSafetyCheckFailed(self):
+        if self.phENTER:
+            self.telemetryEvent.emit('personality/safety', json.dumps({'reason':'Passive safety check failed - ON switch active', 'member': self.activeMemberRecord.name}))
+            self.pin_led2.set(HIGH)
+            return self.goActive()
+
+        elif self.phACTIVE:
+            if self.wakereason == self.REASON_UI and self.uievent == 'SafetyFailedDone':
+                return self.exitAndGoto(self.STATE_IDLE)
+
+            return False
+
+        elif self.phEXIT:
+            self.pin_led2.set(LOW)
+            return self.goNextState()
+
+    #############################################
     ## STATE_SAFETY_CHECK
     #############################################
     def stateSafetyCheck(self):
@@ -466,6 +517,10 @@ class Personality(PersonalityBase):
             if self.toolActive():
                 self.disableTool()
                 return self.exitAndGoto(self.STATE_SAFETY_CHECK_FAILED)
+
+            if self._monitorEstop and not self.toolEstopEnabled():
+                self.disableTool()
+                return self.exitAndGoto(self.STATE_TOOL_ENABLED_EMERGENCY_STOP)
 
             if self.wakereason == self.REASON_TIMER:
                 return self.exitAndGoto(self.STATE_SAFETY_CHECK_PASSED)

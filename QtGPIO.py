@@ -35,6 +35,7 @@ from Logger import Logger
 import logging
 import errno
 import os
+import sys
 import select
 
 # Sysfs constants
@@ -140,8 +141,22 @@ class SysfsPin(object):
         return self._active_low
 
     def set(self, value):
-        # Set pin to a value
-        self._fd.write(SYSFS_GPIO_VALUE_HIGH if value else SYSFS_GPIO_VALUE_LOW)
+        # Set pin to a value, with write-readback verification.
+        # Works around a known GPIO hardware bug where writes silently fail.
+        val = SYSFS_GPIO_VALUE_HIGH if value else SYSFS_GPIO_VALUE_LOW
+        self._fd.write(val)
+        self._fd.seek(0)
+        v2 = self.get()
+        if v2 != int(val):
+            # value didn't stick - reopen the file descriptor and retry
+            self._fd.close()
+            self._fd = open(self._sysfs_gpio_value_path(), 'r+')
+            self._fd.write(val)
+            self._fd.seek(0)
+            v3 = self.get()
+            if v3 != int(val):
+                # retry also failed - force restart
+                sys.exit(1)
         self._fd.seek(0)
 
     def get (self):
