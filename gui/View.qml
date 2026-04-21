@@ -44,7 +44,7 @@ Rectangle {
     property bool shown: false
     property string name: "View"
 
-    color: "#dddddd"
+    color: "transparent"
 
     function show() {
         shown = true;

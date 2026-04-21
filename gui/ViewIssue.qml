@@ -169,8 +169,8 @@ View {
             Layout.fillWidth: true
             text: "Report an Issue"
             font.pixelSize: 12
-            font.weight: Font.DemiBold
-            color: "#003399"
+            font.weight: Font.Medium
+            color: "#FFFFFF"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
@@ -181,9 +181,13 @@ View {
             Layout.fillHeight: true
             visible: root.state == "list"
 
-            style: TableViewStyle { }
+            style: TableViewStyle {
+                backgroundColor: "#2A2A2A"
+                alternateBackgroundColor: "#2A2A2A"
+            }
             headerVisible: false
             alternatingRowColors: false
+            backgroundVisible: true
 
             selectionMode: SelectionMode.SingleSelection
 
@@ -236,8 +240,8 @@ View {
                 text: currentIssue
                 horizontalAlignment: Text.AlignHCenter
                 font.pixelSize: 12
-                font.weight: Font.Normal
-                color: "#880000"
+                font.weight: Font.Medium
+                color: "#FF4444"
                 verticalAlignment: Text.AlignVCenter
             }
 
@@ -246,9 +250,9 @@ View {
                 visible: root.state == "scan"
                 text: "Please scan your RFID badge to report the issue."
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: 10
+                font.pixelSize: 11
                 font.weight: Font.Normal
-                color: "#000000"
+                color: "#CCCCCC"
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.Wrap
             }
@@ -258,8 +262,8 @@ View {
                 text: activeMemberRecord.name
                 horizontalAlignment: Text.AlignHCenter
                 font.pixelSize: 12
-                font.weight: Font.DemiBold
-                color: "#000099"
+                font.weight: Font.Medium
+                color: "#00FF66"
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.Wrap
             }
@@ -268,9 +272,9 @@ View {
                 visible: root.state == "thank"
                 text: "Thanks for your report."
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: 10
+                font.pixelSize: 11
                 font.weight: Font.Normal
-                color: "#440099"
+                color: "#CCCCCC"
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.Wrap
             }

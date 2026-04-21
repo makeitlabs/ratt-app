@@ -186,10 +186,8 @@ ApplicationWindow {
 
     Rectangle {
         id: root
-        anchors.centerIn: parent
+        anchors.fill: parent
         color: "black"
-        width: appWindow.targetTftWidth
-        height: appWindow.targetTftHeight
 
         Item {
             id: tftWindow

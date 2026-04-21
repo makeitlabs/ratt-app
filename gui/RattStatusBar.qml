@@ -42,6 +42,7 @@ import QtQuick.Layouts 1.2
 StatusBar {
     id: root
     height: 20
+    style: StatusBarStyle { background: Rectangle { color: "#222222"; border.width: 0 } }
 
     property string keyEscLabel: "\u2190"
     property string keyDownLabel: "\u25bc"
@@ -53,8 +54,8 @@ StatusBar {
     property bool keyUpActive: false
     property bool keyReturnActive: false
 
-    property color activeKeyColor: "#000000"
-    property color inactiveKeyColor: "#999999"
+    property color activeKeyColor: "#FFFFFF"
+    property color inactiveKeyColor: "#666666"
 
     function setKeyActives(esc, down, up, ret) {
         keyEscActive = esc;
@@ -114,7 +115,7 @@ StatusBar {
         Rectangle {
             Layout.fillHeight: true
             Layout.preferredWidth: 1
-            color: "#000000"
+            color: "#111111"
         }
 
         Button {
@@ -143,7 +144,7 @@ StatusBar {
         Rectangle {
             Layout.fillHeight: true
             Layout.preferredWidth: 1
-            color: "#000000"
+            color: "#111111"
         }
 
         Button {
@@ -172,7 +173,7 @@ StatusBar {
         Rectangle {
             Layout.fillHeight: true
             Layout.preferredWidth: 1
-            color: "#000000"
+            color: "#111111"
         }
         Button {
             Layout.fillHeight: true

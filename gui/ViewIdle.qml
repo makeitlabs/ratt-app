@@ -256,17 +256,17 @@ View {
             text: config.General_ToolDesc
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 14
-            font.weight: Font.DemiBold
-            color: "#000088"
+            font.weight: Font.Normal
+            color: "#FFFFFF"
         }
         Label {
             visible: !isToolPowered
             Layout.fillWidth: true
             text: "POWERED OFF"
             horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 14
-            font.weight: Font.Bold
-            color: "#990000"
+            font.pixelSize: 13
+            font.weight: Font.Medium
+            color: "#FF4444"
         }
 
     }
@@ -286,11 +286,11 @@ View {
         Label {
           visible: isToolPowered
           Layout.fillWidth: true
-          text: "Scan RFID Tag Below"
+          text: "Ready to Scan"
           horizontalAlignment: Text.AlignHCenter
-          font.pixelSize: 12
-          font.weight: Font.Bold
-          color: "#000077"
+          font.pixelSize: 13
+          font.weight: Font.Medium
+          color: "#00FF66"
         }
 
         Label {
@@ -298,36 +298,27 @@ View {
             Layout.fillWidth: true
             text: "POWERED OFF"
             horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 14
-            font.weight: Font.Bold
-            color: "#990000"
+            font.pixelSize: 13
+            font.weight: Font.Medium
+            color: "#FF4444"
         }
         Label {
             visible: !isToolPowered
             Layout.fillWidth: true
             text: "Turn on power"
             horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 12
-            font.weight: Font.Bold
-            color: "#222222"
+            font.pixelSize: 11
+            font.weight: Font.Normal
+            color: "#CCCCCC"
         }
         Label {
             visible: !isToolPowered
             Layout.fillWidth: true
-            text: "before you scan"
+            text: "before scanning"
             horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 12
-            font.weight: Font.Bold
-            color: "#222222"
-        }
-        Label {
-            visible: !isToolPowered
-            Layout.fillWidth: true
-            text: "your RFID tag."
-            horizontalAlignment: Text.AlignHCenter
-            font.pixelSize: 12
-            font.weight: Font.Bold
-            color: "#222222"
+            font.pixelSize: 11
+            font.weight: Font.Normal
+            color: "#CCCCCC"
         }
     }
 
@@ -342,32 +333,32 @@ View {
             text: "MEMBERS ALLOWED"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
-            font.weight: Font.DemiBold
-            color: "#444444"
+            font.weight: Font.Normal
+            color: "#AAAAAA"
         }
         Label {
             Layout.fillWidth: true
             text: acl.numActiveMembers + " / " + acl.numMembers
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 11
-            font.weight: Font.Normal
-            color: "#000099"
+            font.weight: Font.Medium
+            color: "#00FF66"
         }
         Label {
             Layout.fillWidth: true
             text: "STATUS"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
-            font.weight: Font.DemiBold
-            color: "#444444"
+            font.weight: Font.Normal
+            color: "#AAAAAA"
         }
         Label {
             Layout.fillWidth: true
             text: acl.status
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 11
-            font.weight: Font.Normal
-            color: "#000099"
+            font.weight: Font.Medium
+            color: "#FFFFFF"
         }
         Label {
             Layout.fillWidth: true
@@ -375,7 +366,7 @@ View {
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 10
             font.weight: Font.Normal
-            color: "#000099"
+            color: "#CCCCCC"
         }
         Item {
             Layout.fillHeight: true
@@ -392,17 +383,17 @@ View {
             text: "Found a problem?"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 12
-            font.weight: Font.DemiBold
-            color: "#990000"
+            font.weight: Font.Normal
+            color: "#CCCCCC"
         }
 
         Label {
             Layout.fillWidth: true
-            text: "REPORT AN ISSUE!"
+            text: "REPORT AN ISSUE"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 14
-            font.weight: Font.DemiBold
-            color: "#990000"
+            font.weight: Font.Medium
+            color: "#FF4444"
         }
 
         RowLayout {
@@ -410,16 +401,17 @@ View {
           Rectangle {
             width: 28
             height: 28
-            radius: 4
-            color: "yellow"
-            border.color: "black"
-            border.width: 2
+            radius: 6
+            color: "#333333"
+            border.color: "#555555"
+            border.width: 1
             Label {
               anchors.fill: parent
               font.pixelSize: 18
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
               text: "\u2190"
+              color: "#00FF66"
             }
           }
 
@@ -427,12 +419,12 @@ View {
             Layout.fillWidth: true
             Label {
                 Layout.fillWidth: true
-                text: "Hold down yellow"
+                text: "Hold down ESC"
                 horizontalAlignment: Text.AlignLeft
                 wrapMode: Text.Wrap
                 font.pixelSize: 11
-                font.weight: Font.Bold
-                color: "#444444"
+                font.weight: Font.Normal
+                color: "#EEEEEE"
             }
             Label {
                 Layout.fillWidth: true
@@ -440,8 +432,8 @@ View {
                 horizontalAlignment: Text.AlignLeft
                 wrapMode: Text.Wrap
                 font.pixelSize: 11
-                font.weight: Font.Bold
-                color: "#444444"
+                font.weight: Font.Normal
+                color: "#EEEEEE"
             }
           }
         }
@@ -457,42 +449,41 @@ View {
             text: "IP & MAC ADDRESS"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
-            font.weight: Font.DemiBold
-            color: "#444444"
+            font.weight: Font.Normal
+            color: "#AAAAAA"
         }
         Label {
             Layout.fillWidth: true
             text: netWorker.currentIfcAddr
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 11
-            font.weight: Font.Normal
-            color: "#000099"
+            font.weight: Font.Medium
+            color: "#FFFFFF"
         }
         Label {
             Layout.fillWidth: true
             text: netWorker.currentHwAddr
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 11
-            font.weight: Font.Normal
-            color: "#000099"
+            font.weight: Font.Medium
+            color: "#FFFFFF"
         }
-
 
         Label {
             Layout.fillWidth: true
             text: "WIFI SSID"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
-            font.weight: Font.DemiBold
-            color: "#444444"
+            font.weight: Font.Normal
+            color: "#AAAAAA"
         }
         Label {
             Layout.fillWidth: true
             text: netWorker.currentWifiESSID
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 11
-            font.weight: Font.Normal
-            color: "#000099"
+            font.weight: Font.Medium
+            color: "#00FF66"
         }
         Item {
             Layout.fillHeight: true
@@ -509,8 +500,8 @@ View {
             text: "MENDER ARTIFACT"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
-            font.weight: Font.DemiBold
-            color: "#444444"
+            font.weight: Font.Normal
+            color: "#AAAAAA"
         }
         Label {
             Layout.fillWidth: true
@@ -518,15 +509,15 @@ View {
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 10
             font.weight: Font.Normal
-            color: "#000099"
+            color: "#FFFFFF"
         }
         Label {
             Layout.fillWidth: true
             text: "APP VERSION"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 9
-            font.weight: Font.DemiBold
-            color: "#444444"
+            font.weight: Font.Normal
+            color: "#AAAAAA"
             wrapMode: Text.Wrap
         }
         Label {
@@ -534,8 +525,8 @@ View {
             text: appVersion
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 10
-            font.weight: Font.Normal
-            color: "#000099"
+            font.weight: Font.Medium
+            color: "#00FF66"
         }
 
 
@@ -555,8 +546,8 @@ View {
             text: "ACL UPDATE ERROR"
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 12
-            font.weight: Font.Bold
-            color: "#994444"
+            font.weight: Font.Medium
+            color: "#FF4444"
         }
         Label {
             Layout.fillWidth: true
@@ -565,7 +556,7 @@ View {
             wrapMode: Text.Wrap
             font.pixelSize: 10
             font.weight: Font.Normal
-            color: "#000000"
+            color: "#CCCCCC"
         }
 
 

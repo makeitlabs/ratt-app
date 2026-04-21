@@ -38,19 +38,22 @@ import QtQuick 2.5
 import QtQuick.Controls 1.3
 import QtQuick.Layouts 1.2
 import QtQml 2.2
+import QtQuick.Controls.Styles 1.4
 
 ToolBar {
 
     property string time: ""
 
     height: 20
+    style: ToolBarStyle { background: Rectangle { color: "#222222"; border.width: 0 } }
 
     Label {
         anchors.left: parent.left
         font.pixelSize: 10
-        font.weight: Font.DemiBold
+        font.weight: Font.Medium
         height: 12
         text: time
+        color: "#CCCCCC"
     }
 
 
@@ -99,9 +102,9 @@ ToolBar {
       anchors.topMargin: acl.downloadActive ? -2 : acl.errorDescription == "" ? -2 : -2
       anchors.rightMargin: 1
       font.pixelSize: acl.downloadActive ? 16 : acl.errorDescription == "" ? 16 : 14
-      font.weight: Font.DemiBold
+      font.weight: Font.Medium
       text: acl.downloadActive ? "\u21c4" : acl.errorDescription == "" ? "\u2611" : "\u0021"
-      color: acl.downloadActive ? "#000000" : acl.errorDescription == "" ? "#33AA33" : "#AA0000"
+      color: acl.downloadActive ? "#FFFFFF" : acl.errorDescription == "" ? "#00FF66" : "#FF4444"
     }
 
     Timer {
