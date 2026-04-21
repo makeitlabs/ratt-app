@@ -1,0 +1,101 @@
+/*
+ * MakeIt Labs RATT: RFID All The Things
+ * steve.richardson@makeitlabs.com
+ * -----------------------------------------------------------------
+ * single PCA9539 16-bit I2C I/O Expander - I2C addr 0x74
+ * resources: I2C1 with interrupt on GPIO4 (active low)
+ *
+ * also contains the hooks for gpio-keys to assign expander gpio inputs
+ * to keypad keys
+ */
+ 
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&gpio>;
+		__overlay__ {
+			pca9539_pins: pca9539_pins {
+				brcm,pins = <4>;
+				brcm,function = <0>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pca9539: pca9539@74 {
+				compatible = "nxp,pca9539";
+				reg = <0x74>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				label = "PCA9539 IO";
+
+				#interrupt-cells=<2>;
+				interrupt-parent = <&gpio>;
+				interrupts = <4 8>;
+				interrupt-controller;
+
+				status = "okay";
+
+			};
+		};
+	};
+
+	fragment@3 {
+		   target-path = "/soc";
+		   __overlay__ {
+			keypad: keypad {
+				compatible = "gpio-keys";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				
+				status = "okay";
+				
+				/* autorepeat;  -- uncomment to enable auto repeat */
+
+				button_0 {
+					label = "GPIO KEY_ESC";
+					linux,code = <1>;
+					gpios = <&pca9539 8 1>;
+				};
+				button_1 {
+					label = "GPIO KEY_DOWN";
+					linux,code = <108>;
+					gpios = <&pca9539 9 1>;
+				};
+				button_2 {
+					label = "GPIO KEY_UP";
+					linux,code = <103>;
+					gpios = <&pca9539 10 1>;
+				};
+				button_3 {
+					label = "GPIO KEY_ENTER";
+					linux,code = <28>;
+					gpios = <&pca9539 11 1>;
+				};
+			};
+		};
+	};
+
+    __overrides__ {
+       gpio_pin = <&pca9539_pins>,"brcm,pins:0",
+                  <&pca9539>,"interrupts:0";
+       addr = <&pca9539>,"reg:0";
+    };
+};
+

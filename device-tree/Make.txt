@@ -1,0 +1,9 @@
+dtc -@ -I dts -O dtb -o ratt.dtbo ratt.dts
+
+
+copy ratt.dtbo to /boot/firmware/overlays/
+
+add to /boot/firmware/config.txt:
+
+dtparam=i2c_arm=on
+dtoverlay=ratt
