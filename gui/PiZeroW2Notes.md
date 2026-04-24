@@ -43,6 +43,15 @@ fb_st7789v
 ```
 To the end of `/etc/modules`
 
+# Serial Interface Cleanup (CRITICAL)
+By default, the OS starts a login prompt (getty) on the serial port which will corrupt any RFID data. You must disable it:
+
+```bash
+# Stop and disable the service:
+sudo systemctl stop serial-getty@ttyAMA0.service
+sudo systemctl disable serial-getty@ttyAMA0.service
+```
+
 # Run Application
 ```
 QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1 QT_QUICK_BACKEND=software ./ratt.py
@@ -61,7 +70,7 @@ dd if=/dev/mmcblk0p bs=512  skip=35033 count=1 | xxd
 
 ## DANGER!
 # echo "test" | dd of=/dev/mmcblk0  bs=512  seek=37135 count=1
-``
+```
 
 
 ## Note "seek" vs "skip"!
@@ -114,6 +123,9 @@ to automatically load, add:
 fb_st7789v
 ```
 To the end of `/etc/modules`
+
+# Serial Interface Cleanup (CRITICAL)
+Note: Use `systemctl disable serial-getty@ttyAMA0.service` to prevent the OS from taking over the RFID serial port.
 
 # Run Application
 ```
