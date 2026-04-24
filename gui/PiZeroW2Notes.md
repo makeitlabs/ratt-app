@@ -142,8 +142,25 @@ dtoverlay=hifiberry-dac
 dtoverlay=i2s-mmap
 ```
 
-## Test
-Run `alsamixer` to test
+## Audio (ALSA & aplay)
+
+The RATT app on Pi Zero 2W uses `aplay` directly to bypass PulseAudio/GStreamer issues.
+
+1.  **Configure dmix (Crucial):** To allow multiple sounds (beeps + silence loop), create `/etc/asound.conf`:
+    ```text
+    pcm.!default { type plug; slave.pcm "dmixer" }
+    pcm.dmixer {
+        type dmix
+        ipc_key 1024
+        slave { pcm "hw:0,0"; rate 44100 }
+    }
+    ```
+2.  **Verify Module:** Ensure `hifiberry-dac` is loaded and not blacklisted.
+3.  **Test:** Run `alsamixer` to ensure levels are up and not muted.
+
+## Troubleshooting
+*   **HDMI Blinking:** This is often caused by `QtMultimedia` probing the HDMI sink. Solution: Ensure `import QtMultimedia` is removed from QML and use the `AudioPlayer` python class which uses `aplay`.
+*   **Device Busy:** Occurs if `dmix` is not configured and multiple `aplay` instances try to run.
 
 # Experemental Disk Stuff
 ```text

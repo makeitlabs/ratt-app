@@ -89,4 +89,39 @@ When deploying this application - to get it to run smoothly, you must...
   5. `BrokerHost=mqtt` to match server previously in `/etc/hosts`
   6. `BrokerPort=8883` for standard internal MakeIt MQTTS
 
+
+## Audio Configuration (Raspberry Pi)
+
+On minimal Raspberry Pi setups (like the Pi Zero 2W), the RATT application uses `aplay` to bypass the heavy PulseAudio/GStreamer stack. To allow multiple sounds to play simultaneously (e.g., beeps over the background silence loop), you must configure an ALSA software mixer.
+
+Create `/etc/asound.conf` (or `~/.asoundrc`) with the following content:
+
+```text
+pcm.!default {
+    type plug
+    slave.pcm "dmixer"
+}
+
+pcm.dmixer {
+    type dmix
+    ipc_key 1024
+    slave {
+        pcm "hw:0,0"
+        period_time 0
+        period_size 1024
+        buffer_size 4096
+        rate 44100
+    }
+    bindings {
+        0 0
+        1 1
+    }
+}
+
+ctl.dmixer {
+    type hw
+    card 0
+}
+```
+
 For a detailed guide on configuration options, including hardware pin inversion/polarities, see [CONFIG.md](CONFIG.md).

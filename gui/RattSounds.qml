@@ -35,10 +35,6 @@
 //
 
 import QtQuick 2.5
-import QtQuick.Controls 1.4
-import QtQuick.Layouts 1.2
-import QtMultimedia 5.5
-import RATT 1.0
 
 Item {
     property alias keyAudio: keyAudio
@@ -62,99 +58,108 @@ Item {
     property alias homingOverrideAudio: homingOverrideAudio
     property alias enableEstopAudio: enableEstopAudio
     
-    Component.onCompleted: {
-      if (config.Sound_EnableSilenceLoop) {
-        // play silence continually in background to work around the click/pop issue
-        // with the audio DAC+amp combo that powers down when not receiving i2s bitstream
-        silence.play()
-      }
+    function playSfx(sfxPath) {
+        // Ensure we have the gui/ prefix if it isn't absolute
+        var path = sfxPath;
+        if (path.indexOf("/") !== 0 && path.indexOf("gui/") !== 0) {
+            path = "gui/" + path;
+        }
+        audioPlayer.play(path);
     }
 
-    SoundEffect {
-      id: silence
-      source: config.Sound_Silence
-      loops: SoundEffect.Infinite
+    Timer {
+        id: silenceTimer
+        interval: 5000 // Approximate length of silence.wav (5s)
+        repeat: true
+        running: config.Sound_EnableSilenceLoop
+        triggeredOnStart: false // Delay the first start to avoid startup blink
+        onTriggered: playSfx(config.Sound_Silence)
     }
 
-    SoundEffect {
+    QtObject {
+        id: silence
+        function play() { silenceTimer.start() }
+        function stop() { silenceTimer.stop() }
+    }
+
+    QtObject {
         id: keyAudio
-        source: config.Sound_KeyPress
+        function play() { playSfx(config.Sound_KeyPress) }
     }
-    SoundEffect {
+    QtObject {
         id: generalAlertAudio
-        source: config.Sound_GeneralAlert
+        function play() { playSfx(config.Sound_GeneralAlert) }
     }
-    SoundEffect {
+    QtObject {
         id: general2AlertAudio
-        source: config.Sound_General2Alert
+        function play() { playSfx(config.Sound_General2Alert) }
     }        
-    SoundEffect {
+    QtObject {
         id: general3AlertAudio
-        source: config.Sound_General3Alert
+        function play() { playSfx(config.Sound_General3Alert) }
     }
-    SoundEffect {
+    QtObject {
         id: general4AlertAudio
-        source: config.Sound_General4Alert
+        function play() { playSfx(config.Sound_General4Alert) }
     }
-    SoundEffect {
+    QtObject {
         id: rfidSuccessAudio
-        source: config.Sound_RFIDSuccess
+        function play() { playSfx(config.Sound_RFIDSuccess) }
     }
-    SoundEffect {
+    QtObject {
         id: rfidFailureAudio
-        source: config.Sound_RFIDFailure
+        function play() { playSfx(config.Sound_RFIDFailure) }
     }
-    SoundEffect {
+    QtObject {
         id: rfidErrorAudio
-        source: config.Sound_RFIDError
+        function play() { playSfx(config.Sound_RFIDError) }
     }
-    SoundEffect {
+    QtObject {
         id: safetyFailedAudio
-        source: config.Sound_SafetyFailed
-        loops: 3
+        function play() { playSfx(config.Sound_SafetyFailed) }
     }
-    SoundEffect {
+    QtObject {
         id: enableAudio
-        source: config.Sound_Enable
+        function play() { playSfx(config.Sound_Enable) }
     }
-    SoundEffect {
+    QtObject {
         id: disableAudio
-        source: config.Sound_Disable
+        function play() { playSfx(config.Sound_Disable) }
     }
-    SoundEffect {
+    QtObject {
         id: timeoutWarningAudio
-        source: config.Sound_TimeoutWarning
+        function play() { playSfx(config.Sound_TimeoutWarning) }
     }
-    SoundEffect {
+    QtObject {
         id: reportSuccessAudio
-        source: config.Sound_ReportSuccess
+        function play() { playSfx(config.Sound_ReportSuccess) }
     }
-    SoundEffect {
+    QtObject {
         id: liftInstructionsAudio
-        source: config.Sound_LiftInstructions
+        function play() { playSfx(config.Sound_LiftInstructions) }
     }
-    SoundEffect {
+    QtObject {
         id: liftCorrectAudio
-        source: config.Sound_LiftCorrect
+        function play() { playSfx(config.Sound_LiftCorrect) }
     }
-    SoundEffect {
+    QtObject {
         id: liftIncorrectAudio
-        source: config.Sound_LiftIncorrect
+        function play() { playSfx(config.Sound_LiftIncorrect) }
     }
-    SoundEffect {
+    QtObject {
         id: homingInstructionsAudio
-        source: config.Sound_HomingInstructions
+        function play() { playSfx(config.Sound_HomingInstructions) }
     }
-    SoundEffect {
+    QtObject {
         id: homingWarningAudio
-        source: config.Sound_HomingWarning
+        function play() { playSfx(config.Sound_HomingWarning) }
     }
-    SoundEffect {
+    QtObject {
         id: homingOverrideAudio
-        source: config.Sound_HomingOverride
+        function play() { playSfx(config.Sound_HomingOverride) }
     }
-    SoundEffect {
+    QtObject {
         id: enableEstopAudio
-        source: config.Sound_EnableEstop
+        function play() { playSfx(config.Sound_EnableEstop) }
     }
 }

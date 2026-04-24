@@ -50,6 +50,21 @@ import sys
 import subprocess
 import argparse
 
+class AudioPlayer(QtCore.QObject):
+    def __init__(self, app):
+        QtCore.QObject.__init__(self)
+        self.app = app
+
+    @pyqtSlot(str)
+    def play(self, fileName):
+        # Use aplay directly since we know it works and doesn't blink HDMI
+        # we resolve the path relative to the app root if it's not absolute
+        path = fileName
+        if not path.startswith('/'):
+            path = './' + path
+            
+        subprocess.Popen(['aplay', '-q', path])
+
 class RattAppEngine(QQmlApplicationEngine):
     restart = pyqtSignal()
 
@@ -96,11 +111,13 @@ class RattAppEngine(QQmlApplicationEngine):
             self.rootContext().setContextProperty("mqtt", self.mqtt)
             self.rootContext().setContextProperty("menderArtifact", self.mender_artifact)
             self.rootContext().setContextProperty("appVersion", self.app_version)
+            self.rootContext().setContextProperty("audioPlayer", self.audioPlayer)
 
         self.rootContext().setContextProperty("personality", self.personality)
 
     def __startSystem__(self):
         # initialize the node personality and the other necessary modules
+        self.audioPlayer = AudioPlayer(self)
         self.__initSystem__()
         self.__initPersonality__()
 
