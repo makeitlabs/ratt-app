@@ -1,0 +1,16 @@
+[Unit]
+Description=fast remote file copy program daemon
+ConditionPathExists=/data/ratt/ratt.ini
+After=network.target
+
+[Service]
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
+Environment=QT_QUICK_BACKEND=software
+WorkingDirectory=/home/bkg/ratt-app
+ExecStart=/home/bkg/ratt-app/ratt.py
+RestartSec=5
+Restart=on-failure
+
+
+[Install]
+WantedBy=multi-user.target
