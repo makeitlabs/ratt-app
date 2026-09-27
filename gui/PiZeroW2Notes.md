@@ -183,7 +183,6 @@ dd if=/dev/mmcblk0p bs=512  skip=35033 count=1 | xxd
 
 LCD connection to new RATT LCD Screens:
 
-|----|----|---|
 | Display | Color | RATT |
 |----|----|---|
 | CS | Yellow | TFT_CS |
@@ -193,4 +192,3 @@ LCD connection to new RATT LCD Screens:
 | RST | Brown | RESET |
 | VCC | Purple | VCC |
 | GND | White | GND |
-|----|----|---|
