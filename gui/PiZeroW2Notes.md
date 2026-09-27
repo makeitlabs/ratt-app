@@ -178,3 +178,19 @@ dd if=/dev/mmcblk0p bs=512  skip=35033 count=1 | xxd
 
 ## Note "seek" vs "skip"!
 ```
+
+## LCD Connection
+
+LCD connection to new RATT LCD Screens:
+
+|----|----|---|
+| Display | Color | RATT |
+|----|----|---|
+| CS | Yellow | TFT_CS |
+| CLK | Orange | TFT_CLK |
+| DIN | Green | TFT_MOSI |
+| DC | Blue | A0 |
+| RST | Brown | RESET |
+| VCC | Purple | VCC |
+| GND | White | GND |
+|----|----|---|
