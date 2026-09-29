@@ -2,7 +2,21 @@
 
 The core RATT application that controls access to the equipment as well as provides the GUI that the end user sees is written in Python3 and PyQt5/QML.  This runs on the target hardware, and can also be run on a desktop host for more rapid debug and feature development.
 
-See [PiZeroW2Notes.md](gui/PiZeroW2Notes.md) for notes on running on a Pi Zero W2.  
+See [PiZeroW2Notes.md](gui/PiZeroW2Notes.md) for detailed notes on running on a Pi Zero W2.  
+
+## Automated Setup on Raspberry Pi (Pi Zero W2 / Debian Trixie)
+
+To set up a fresh stock Raspberry Pi OS (Trixie or newer) installation, clone the repository and run:
+
+```bash
+sudo ./setup.sh
+```
+
+This automagically installs all required Qt5, QML, gpiod, and MQTT packages, compiles and installs the Device Tree Overlay (`ratt.dtbo`), configures `/boot/firmware/config.txt` (GPIO expander, LCD display, I2S DAC audio), disables interfering serial getty services on `ttyAMA0`, configures ALSA `dmix`, initializes `/data/ratt/ratt.ini`, and registers `ratt.service`.
+
+Reboot after installation.
+
+---
 
 ## Run on Development Host
 

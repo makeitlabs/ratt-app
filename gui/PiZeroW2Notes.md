@@ -1,5 +1,31 @@
 # Raspberry Pi Trixie on Pi Zero W2
-## Build Device Tree Overlay
+
+## Quick Automated Setup
+
+On a fresh stock Raspbian / Debian Trixie installation, clone the repository and run the setup script:
+
+```bash
+git clone https://github.com/makeitlabs/ratt-app.git
+cd ratt-app
+sudo ./setup.sh
+```
+
+This script will automatically:
+1. Install all system dependencies (`python3-pyqt5`, `python3-gpiod`, `qml-module-*`, `paho-mqtt`, `alsa-utils`, `device-tree-compiler`, etc.).
+2. Build and install the device tree overlay (`ratt.dtbo` -> `/boot/firmware/overlays/`).
+3. Add required overlay entries to `/boot/firmware/config.txt` (GPIO expander, ST7789 display, I2S HiFiBerry DAC audio).
+4. Configure display module blacklists and kernel module loading.
+5. Disable `serial-getty@ttyAMA0` so serial RFID reads function without data corruption.
+6. Configure the ALSA software mixer (`/etc/asound.conf`).
+7. Create `/data/ratt/ratt.ini` from example templates and set up the `ratt.service` systemd daemon.
+
+Reboot after running the setup script for all kernel overlays to take effect.
+
+---
+
+## Manual Setup Reference
+
+### Build Device Tree Overlay
 Configure GPIO Expander
 
 ```

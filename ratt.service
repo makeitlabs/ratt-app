@@ -1,16 +1,15 @@
 [Unit]
-Description=fast remote file copy program daemon
+Description=RATT Access Control Application Daemon
 ConditionPathExists=/data/ratt/ratt.ini
 After=network.target
 
 [Service]
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
 Environment=QT_QUICK_BACKEND=software
-WorkingDirectory=/home/bkg/ratt-app
-ExecStart=/home/bkg/ratt-app/ratt.py
+WorkingDirectory=/home/pi/ratt-app
+ExecStart=/usr/bin/python3 /home/pi/ratt-app/ratt.py --ini /data/ratt/ratt.ini
 RestartSec=5
 Restart=on-failure
-
 
 [Install]
 WantedBy=multi-user.target
