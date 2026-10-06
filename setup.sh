@@ -88,6 +88,18 @@ else
     echo "  -> WARNING: Could not find boot config.txt at /boot/firmware/config.txt or /boot/config.txt"
 fi
 
+CMDLINE_TXT="/boot/firmware/cmdline.txt"
+if [ ! -f "$CMDLINE_TXT" ]; then
+    CMDLINE_TXT="/boot/cmdline.txt"
+fi
+
+if [ -f "$CMDLINE_TXT" ]; then
+    if ! grep -qF "vt.global_cursor_default=0" "$CMDLINE_TXT"; then
+        sed -i 's/$/ vt.global_cursor_default=0/' "$CMDLINE_TXT"
+        echo "  + Disabled blinking cursor in $CMDLINE_TXT"
+    fi
+fi
+
 # 4. Display Driver Module Config (/etc/modprobe.d and /etc/modules)
 echo "[4/7] Configuring display kernel drivers..."
 # Removed blacklist since we need these modules to load at boot!
@@ -98,12 +110,17 @@ if ! grep -qF "fb_st7789v" /etc/modules 2>/dev/null; then
     echo "  + Added fb_st7789v to /etc/modules"
 fi
 
-# 5. Disable Serial Getty (CRITICAL for RFID)
-echo "[5/7] Disabling serial-getty on ttyAMA0 (releasing RFID serial port)..."
+# 5. Disable Serial Getty and Desktop GUI
+echo "[5/7] Disabling serial-getty and console GUI..."
 systemctl stop serial-getty@ttyAMA0.service 2>/dev/null || true
 systemctl disable serial-getty@ttyAMA0.service 2>/dev/null || true
 systemctl mask serial-getty@ttyAMA0.service 2>/dev/null || true
 
+systemctl stop getty@tty1.service 2>/dev/null || true
+systemctl disable getty@tty1.service 2>/dev/null || true
+systemctl mask getty@tty1.service 2>/dev/null || true
+
+systemctl set-default multi-user.target 2>/dev/null || true
 # 6. Audio Mixer Configuration (/etc/asound.conf)
 echo "[6/7] Configuring ALSA software mixer (/etc/asound.conf)..."
 cat << 'EOF' > /etc/asound.conf
@@ -116,7 +133,7 @@ pcm.dmixer {
     type dmix
     ipc_key 1024
     slave {
-        pcm "hw:0,0"
+        pcm "hw:CARD=sndrpihifiberry,DEV=0"
         period_time 0
         period_size 1024
         buffer_size 4096
@@ -130,7 +147,7 @@ pcm.dmixer {
 
 ctl.dmixer {
     type hw
-    card 0
+    card sndrpihifiberry
 }
 EOF
 

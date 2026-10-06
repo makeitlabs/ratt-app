@@ -8,6 +8,10 @@
 ; short description of tool, e.g. "Auto Lift"
 ToolDesc=Example Tool
 
+; Screen dimensions
+TftWidth=320
+TftHeight=240
+
 ; NetworkInterfaceName=<ifc> - default=wlan0
 ; Name of primary network device.  If not found, it will find a likely one from the list (but might be wrong)
 ; NetworkInterfaceName=enp0s3
@@ -62,6 +66,7 @@ File=/tmp/ratt.log
 ; Class=[Simple|LaserCutter|AutoLift|ProtoTrak] - default=Simple
 ; Personality type (other types may be added)
 ; Class=LaserCutter
+Class=HardwareSetup
 
 ; TimeoutSeconds=<seconds> - default=300
 ; Auto-logout of user after timeout with no activity
