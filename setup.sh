@@ -37,7 +37,7 @@ apt-get install -y --no-install-recommends \
     qml-module-qtquick-window2 \
     qml-module-qtmultimedia \
     python3-paho-mqtt \
-    python3-gpiod \
+    python3-libgpiod \
     gpiod \
     device-tree-compiler \
     alsa-utils \
@@ -90,10 +90,8 @@ fi
 
 # 4. Display Driver Module Config (/etc/modprobe.d and /etc/modules)
 echo "[4/7] Configuring display kernel drivers..."
-cat << 'EOF' > /etc/modprobe.d/blacklist-st7789.conf
-blacklist fb_st7789v
-blacklist fbtft
-EOF
+# Removed blacklist since we need these modules to load at boot!
+rm -f /etc/modprobe.d/blacklist-st7789.conf
 
 if ! grep -qF "fb_st7789v" /etc/modules 2>/dev/null; then
     echo "fb_st7789v" >> /etc/modules
@@ -155,7 +153,7 @@ ConditionPathExists=/data/ratt/ratt.ini
 After=network.target
 
 [Service]
-Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
 Environment=QT_QUICK_BACKEND=software
 WorkingDirectory=${SCRIPT_DIR}
 ExecStart=/usr/bin/python3 ${SCRIPT_DIR}/ratt.py --ini /data/ratt/ratt.ini
@@ -189,5 +187,5 @@ echo " To start RATT service manually now:"
 echo "   sudo systemctl start ratt.service"
 echo ""
 echo " Or run interactively:"
-echo "   QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1 QT_QUICK_BACKEND=software ./ratt.py"
+echo "   QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0 QT_QUICK_BACKEND=software ./ratt.py"
 echo "========================================================"
