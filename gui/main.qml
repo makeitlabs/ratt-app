@@ -64,6 +64,10 @@ ApplicationWindow {
         appWindow.mqttPublishSubtopicEvent.connect(mqtt.slotPublishSubtopic)
     }
 
+    function showExitScreen() {
+        exitOverlay.visible = true;
+    }
+
     Connections {
         target: personality
 
@@ -168,12 +172,19 @@ ApplicationWindow {
                     switchTo(viewPowerLoss);
                     break;
                 case "ShutDown":
+                    switchTo(viewExit);
                     break;
                 case "LockOut":
 		                switchTo(viewLockedOut);
                     break;
                 }
             }
+        }
+
+        function showExitScreen() {
+            if (typeof tool !== "undefined") tool.visible = false;
+            if (typeof status !== "undefined") status.visible = false;
+            switchTo(viewExit);
         }
 
         Component.onCompleted: {
@@ -334,10 +345,29 @@ ApplicationWindow {
                     id: viewPowerLoss
                     visible: false
                 }
-            		ViewLockedOut {
-            		    id: viewLockedOut
-            		    visible: false
-            		}
+                ViewLockedOut {
+                    id: viewLockedOut
+                    visible: false
+                }
+                ViewExit {
+                    id: viewExit
+                    visible: false
+                }
+            }
+        }
+        Rectangle {
+            id: exitOverlay
+            anchors.fill: parent
+            z: 999999
+            visible: false
+            color: "black"
+
+            Image {
+                anchors.fill: parent
+                source: "images/ratt_exitscreen.png"
+                fillMode: Image.PreserveAspectFit
+                asynchronous: false
+                cache: true
             }
         }
     }

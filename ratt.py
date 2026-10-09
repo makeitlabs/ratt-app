@@ -38,9 +38,11 @@
 #
 
 import sys
+import os
 import signal
+import atexit
 from PyQt5.QtGui import QGuiApplication, QFont
-from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QUrl
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QUrl, QTimer, QSocketNotifier
 from RattAppEngine import RattAppEngine
 
 
@@ -49,11 +51,32 @@ class MainApp(QObject):
     engine = None
 
     def __init__(self):
-        signal.signal(signal.SIGINT, self.sigint_handler)
         QObject.__init__(self)
         self.enableBacklight()
         self.createApp()
+        self.setupSignalWakeup()
         self.createEngine()
+
+    def setupSignalWakeup(self):
+        # Create self-pipe and notify Qt whenever OS signals arrive
+        self.r_fd, self.w_fd = os.pipe()
+        os.set_blocking(self.r_fd, False)
+        os.set_blocking(self.w_fd, False)
+        signal.set_wakeup_fd(self.w_fd)
+
+        self.notifier = QSocketNotifier(self.r_fd, QSocketNotifier.Read, self)
+        self.notifier.activated.connect(self.drainWakeup)
+
+        signal.signal(signal.SIGINT, self.sig_handler)
+        signal.signal(signal.SIGTERM, self.sig_handler)
+        signal.signal(signal.SIGHUP, self.sig_handler)
+        atexit.register(self.clearScreen)
+
+    def drainWakeup(self):
+        try:
+            os.read(self.r_fd, 512)
+        except Exception:
+            pass
 
     def enableBacklight(self):
         try:
@@ -63,6 +86,23 @@ class MainApp(QObject):
             fd.close()
         except:
             pass
+
+    def clearScreen(self):
+        try:
+            if self.engine:
+                root_objs = self.engine.rootObjects()
+                if root_objs:
+                    for obj in root_objs:
+                        try:
+                            from PyQt5.QtCore import QMetaObject
+                            QMetaObject.invokeMethod(obj, "showExitScreen")
+                        except Exception:
+                            pass
+            if self.app:
+                for _ in range(20):
+                    self.app.processEvents()
+        except Exception as e:
+            print("Error rendering exit screen:", e)
 
     def createApp(self):
         if not self.app:
@@ -85,9 +125,15 @@ class MainApp(QObject):
             self.engine = RattAppEngine()
             self.engine.exit.connect(self.exit)
 
-    def sigint_handler(self, sig, frame):
-        print('Caught SIGINT, exiting.')
-        self.engine.exit.emit(100)
+    def sig_handler(self, sig, frame):
+        print('Caught signal %d, exiting.' % sig)
+        self.clearScreen()
+        import time
+        time.sleep(0.1)
+        if self.app:
+            self.app.exit(0)
+        else:
+            sys.exit(0)
 
     @pyqtSlot(int)
     def exit(self, exitCode):
@@ -95,11 +141,15 @@ class MainApp(QObject):
         if exitCode == 2 and self.engine:
             print("reloading qml")
             self.engine.load(QUrl('gui/main.qml'))
+        elif self.app:
+            self.clearScreen()
+            self.app.exit(exitCode)
 
     def run(self):
         return self.app.exec_()
 
     def cleanup(self):
+        self.clearScreen()
         del self.engine
         del self.app
 

@@ -1,13 +1,13 @@
 [Unit]
-Description=RATT Access Control Application Daemon
+Description=RATT Access Control Application
 ConditionPathExists=/data/ratt/ratt.ini
 After=network.target
 
 [Service]
-Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
 Environment=QT_QUICK_BACKEND=software
-WorkingDirectory=/home/pi/ratt-app
-ExecStart=/usr/bin/python3 /home/pi/ratt-app/ratt.py --ini /data/ratt/ratt.ini
+WorkingDirectory=/home/bkg/ratt-app
+ExecStart=/usr/bin/python3 /home/bkg/ratt-app/ratt.py --ini /data/ratt/ratt.ini
 RestartSec=5
 Restart=on-failure
 

@@ -100,14 +100,31 @@ if [ -f "$CMDLINE_TXT" ]; then
     fi
 fi
 
-# 4. Display Driver Module Config (/etc/modprobe.d and /etc/modules)
-echo "[4/7] Configuring display kernel drivers..."
+# 4. Display Driver Module Config & Boot Splash (/etc/modprobe.d, /etc/modules, Plymouth)
+echo "[4/7] Configuring display kernel drivers and boot splash..."
 # Removed blacklist since we need these modules to load at boot!
 rm -f /etc/modprobe.d/blacklist-st7789.conf
 
 if ! grep -qF "fb_st7789v" /etc/modules 2>/dev/null; then
     echo "fb_st7789v" >> /etc/modules
     echo "  + Added fb_st7789v to /etc/modules"
+fi
+
+BOOT_SPLASH="${SCRIPT_DIR}/gui/images/ratt_bootscreen.png"
+if [ -f "$BOOT_SPLASH" ]; then
+    for splash_dest in \
+        /usr/share/plymouth/themes/pix/splash.png \
+        /etc/alternatives/default.plymouth/splash.png \
+        /usr/share/plymouth/themes/spinner/watermark.png
+    do
+        if [ -d "$(dirname "$splash_dest")" ]; then
+            cp -f "$BOOT_SPLASH" "$splash_dest" 2>/dev/null || true
+            echo "  + Installed boot splash to $splash_dest"
+        fi
+    done
+    if command -v update-initramfs >/dev/null 2>&1; then
+        update-initramfs -u 2>/dev/null || true
+    fi
 fi
 
 # 5. Disable Serial Getty and Desktop GUI
