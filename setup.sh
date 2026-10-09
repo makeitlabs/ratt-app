@@ -98,20 +98,11 @@ else
     echo "  -> WARNING: Could not find boot config.txt at /boot/firmware/config.txt or /boot/config.txt"
 fi
 
-CMDLINE_TXT="/boot/firmware/cmdline.txt"
-if [ ! -f "$CMDLINE_TXT" ]; then
-    CMDLINE_TXT="/boot/cmdline.txt"
-fi
+# NOTE: cmdline.txt tweaks (fbcon=map:9, cursor, consoleblank) live in
+# scripts/platform-setup.sh, not here. See OS_PACKAGING.md.
 
-if [ -f "$CMDLINE_TXT" ]; then
-    if ! grep -qF "vt.global_cursor_default=0" "$CMDLINE_TXT"; then
-        sed -i 's/$/ vt.global_cursor_default=0/' "$CMDLINE_TXT"
-        echo "  + Disabled blinking cursor in $CMDLINE_TXT"
-    fi
-fi
-
-# 4. Display Driver Module Config & Boot Splash (/etc/modprobe.d, /etc/modules, Plymouth)
-echo "[4/7] Configuring display kernel drivers and boot splash..."
+# 4. Display Driver Module Config (/etc/modprobe.d, /etc/modules)
+echo "[4/7] Configuring display kernel drivers..."
 # Removed blacklist since we need these modules to load at boot!
 rm -f /etc/modprobe.d/blacklist-st7789.conf
 
@@ -120,32 +111,17 @@ if ! grep -qF "fb_st7789v" /etc/modules 2>/dev/null; then
     echo "  + Added fb_st7789v to /etc/modules"
 fi
 
-BOOT_SPLASH="${SCRIPT_DIR}/gui/images/ratt_bootscreen.png"
-if [ -f "$BOOT_SPLASH" ]; then
-    for splash_dest in \
-        /usr/share/plymouth/themes/pix/splash.png \
-        /etc/alternatives/default.plymouth/splash.png \
-        /usr/share/plymouth/themes/spinner/watermark.png
-    do
-        if [ -d "$(dirname "$splash_dest")" ]; then
-            cp -f "$BOOT_SPLASH" "$splash_dest" 2>/dev/null || true
-            echo "  + Installed boot splash to $splash_dest"
-        fi
-    done
-    if command -v update-initramfs >/dev/null 2>&1; then
-        update-initramfs -u 2>/dev/null || true
-    fi
-fi
+# NOTE: No Plymouth here. Deployments use Raspberry Pi OS Lite (no desktop/Plymouth),
+# and Plymouth draws on KMS/HDMI, not the fbtft LCD. The LCD boot splash
+# (gui/images/ratt_bootscreen.png -> /dev/fb1 via udev) is a platform/image item;
+# see OS_PACKAGING.md.
 
-# 5. Disable Serial Getty and Desktop GUI
-echo "[5/7] Disabling serial-getty and console GUI..."
+# 5. Free the RFID serial port and boot to console
+echo "[5/7] Disabling serial-getty (RFID uses ttyAMA0)..."
 systemctl stop serial-getty@ttyAMA0.service 2>/dev/null || true
 systemctl disable serial-getty@ttyAMA0.service 2>/dev/null || true
 systemctl mask serial-getty@ttyAMA0.service 2>/dev/null || true
-
-systemctl stop getty@tty1.service 2>/dev/null || true
-systemctl disable getty@tty1.service 2>/dev/null || true
-systemctl mask getty@tty1.service 2>/dev/null || true
+# NOTE: masking getty@tty1 (console on the LCD) is done by scripts/platform-setup.sh.
 
 systemctl set-default multi-user.target 2>/dev/null || true
 # 6. Audio Mixer Configuration (/etc/asound.conf)
@@ -180,7 +156,14 @@ EOF
 
 # 7. Application Configuration & Systemd Service
 echo "[7/7] Setting up RATT data directory and systemd service..."
-mkdir -p /data/ratt
+# ratt.ini, ACL cache, remote config cache and certs all live under /data.
+# On production images /data is its own partition (LABEL=data, created by
+# scripts/platform-setup.sh). Warn if it isn't, so data doesn't silently land on rootfs.
+if ! mountpoint -q /data; then
+    echo "  -> WARNING: /data is not a mounted partition; RATT data will live on the root filesystem."
+    echo "     (Fine for dev boxes. For production, prepare the card with scripts/platform-setup.sh.)"
+fi
+mkdir -p /data/ratt /data/certs
 
 if [ ! -f /data/ratt/ratt.ini ]; then
     if [ -f "${SCRIPT_DIR}/conf/ratt.ini-example" ]; then
@@ -194,6 +177,7 @@ cat << EOF > /etc/systemd/system/ratt.service
 [Unit]
 Description=RATT Access Control Application
 ConditionPathExists=/data/ratt/ratt.ini
+RequiresMountsFor=/data
 After=network.target
 
 [Service]

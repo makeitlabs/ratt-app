@@ -22,6 +22,8 @@ Reboot after installation.
 
 For production RATT nodes, it is highly recommended to make the root partition read-only to prevent SD card corruption on sudden power loss. However, RATT requires a persistent `/data` partition for ACL caches, logs, and `ratt.ini`.
 
+> **Automated:** [`scripts/platform-setup.sh`](scripts/platform-setup.sh) creates the `/data` partition (and the LCD boot splash, cmdline tweaks) on a fresh card before first boot, and [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) prepares a golden image for cloning. See [OS_PACKAGING.md](OS_PACKAGING.md). The manual steps below are kept for reference.
+
 Because Raspberry Pi OS automatically expands the root partition to fill the entire SD card on its first boot, you must intervene **before** the first boot to reserve space for a data partition:
 
 1. **Flash the SD Card:** Use Raspberry Pi Imager to flash Debian Trixie to your SD card.
