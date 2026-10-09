@@ -104,8 +104,43 @@ class MainApp(QObject):
         except Exception as e:
             print("Error rendering exit screen:", e)
 
+    @staticmethod
+    def detectFramebuffer():
+        # 1. Identify which framebuffer is ST7789 / fbtft via sysfs
+        for fb in ['fb1', 'fb0']:
+            name_file = f'/sys/class/graphics/{fb}/name'
+            if os.path.exists(name_file):
+                try:
+                    with open(name_file, 'r') as f:
+                        name = f.read().strip().lower()
+                        if 'st7789' in name or 'fbtft' in name or 'st7735' in name:
+                            return f'/dev/{fb}'
+                except Exception:
+                    pass
+
+        # 2. Check requested device from environment if it exists
+        qpa = os.environ.get('QT_QPA_PLATFORM', '')
+        if 'fb=' in qpa:
+            for part in qpa.split(':'):
+                if part.startswith('fb='):
+                    dev = part[3:]
+                    if os.path.exists(dev):
+                        return dev
+
+        # 3. Standard fallback: fb1 if present (standard on Pi with HDMI), else fb0
+        if os.path.exists('/dev/fb1'):
+            return '/dev/fb1'
+        if os.path.exists('/dev/fb0'):
+            return '/dev/fb0'
+        return None
+
     def createApp(self):
         if not self.app:
+            target_fb = self.detectFramebuffer()
+            if target_fb:
+                os.environ['QT_QPA_PLATFORM'] = f'linuxfb:fb={target_fb}'
+                print(f"Using display framebuffer: {target_fb}")
+
             self.app = QGuiApplication(sys.argv)
 
             # Available fonts on RATT image:
@@ -149,9 +184,24 @@ class MainApp(QObject):
         return self.app.exec_()
 
     def cleanup(self):
+        try:
+            signal.set_wakeup_fd(-1)
+        except Exception:
+            pass
+        if hasattr(self, 'notifier') and self.notifier:
+            try:
+                self.notifier.setEnabled(False)
+            except Exception:
+                pass
+            self.notifier = None
+        if hasattr(self, 'engine') and self.engine and hasattr(self.engine, 'logger'):
+            try:
+                self.engine.logger.close()
+            except Exception:
+                pass
         self.clearScreen()
-        del self.engine
-        del self.app
+        self.engine = None
+        self.app = None
 
 
 

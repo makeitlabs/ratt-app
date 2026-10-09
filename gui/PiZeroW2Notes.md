@@ -218,3 +218,36 @@ LCD connection to new RATT LCD Screens:
 | RST | Brown | RESET |
 | VCC | Purple | VCC |
 | GND | White | GND |
+
+## Gotchas (Trixie / kernel 6.18 rebuild, Oct 2026)
+
+### Keypad: do NOT use kernel gpio-keys
+- The PCA9539 INT line (GPIO4) never delivers interrupts on this hardware
+  (`/proc/interrupts` shows 0 for `pinctrl-bcm2835 4 Level 1-0074`, even though
+  `i2cget -f -y 1 0x74 0x01` shows the button bits changing).
+- Keys are read by `PersonalityBase._init_native_keypad()`, which polls expander
+  lines 8-11 (gpio 504-507) over I2C and posts Qt key events.
+- If `ratt.dtbo` contains a `gpio-keys` keypad node, the kernel claims lines 8-11,
+  polling fails with `EBUSY`, and no keys work at all. `device-tree/ratt.dts` no
+  longer has that fragment. Make sure the deployed `ratt.dtbo` matches.
+- Check after a rebuild:
+  `sudo gpioinfo gpiochip1` -> lines 8-11 must be `consumer=ratt-gpio`, and
+  `lsmod | grep gpio_keys` must print nothing.
+
+### Display is /dev/fb1
+- With `vc4-kms-v3d` enabled, HDMI takes `/dev/fb0` and the fbtft ST7789 becomes `/dev/fb1`.
+- `ratt.py` auto-detects the fbtft framebuffer via `/sys/class/graphics/fb*/name`;
+  the service default is `linuxfb:fb=/dev/fb1`.
+- Wrong fb -> `Cannot create window: no screens available` and exit 6/ABRT.
+
+### Overlays
+- There is no `st7789v.dtbo`: use `dtoverlay=fbtft,st7789v,...`.
+- `i2s-mmap.dtbo` is gone on modern kernels (built into bcm2835-i2s); don't add it.
+- Only `ratt.dtbo` is custom; `setup.sh` compiles it from `device-tree/ratt.dts`.
+
+### Service
+- `setup.sh` writes `/etc/systemd/system/ratt.service` with the checkout path of
+  whoever runs it. The repo's `ratt.service` is just an example (hardcoded
+  `/home/bkg/ratt-app`). Wrong path -> `status=200/CHDIR`.
+- Use default `SIGTERM` for stop (no `KillSignal=SIGHUP`); `ratt.py` traps it and
+  shows `gui/images/ratt_exitscreen.png`.

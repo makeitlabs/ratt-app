@@ -56,41 +56,13 @@
 		};
 	};
 
-	fragment@3 {
-		   target-path = "/soc";
-		   __overlay__ {
-			keypad: keypad {
-				compatible = "gpio-keys";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				
-				status = "okay";
-				
-				/* autorepeat;  -- uncomment to enable auto repeat */
-
-				button_0 {
-					label = "GPIO KEY_ESC";
-					linux,code = <1>;
-					gpios = <&pca9539 8 1>;
-				};
-				button_1 {
-					label = "GPIO KEY_DOWN";
-					linux,code = <108>;
-					gpios = <&pca9539 9 1>;
-				};
-				button_2 {
-					label = "GPIO KEY_UP";
-					linux,code = <103>;
-					gpios = <&pca9539 10 1>;
-				};
-				button_3 {
-					label = "GPIO KEY_ENTER";
-					linux,code = <28>;
-					gpios = <&pca9539 11 1>;
-				};
-			};
-		};
-	};
+	/*
+	 * NOTE: No gpio-keys keypad fragment here on purpose.
+	 * The PCA9539 INT line (GPIO4) does not deliver interrupts on this
+	 * hardware, so kernel gpio-keys never sees presses. It would also claim
+	 * expander lines 8-11 and block PersonalityBase._init_native_keypad(),
+	 * which polls those lines and injects Qt key events.
+	 */
 
     __overrides__ {
        gpio_pin = <&pca9539_pins>,"brcm,pins:0",

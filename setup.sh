@@ -59,6 +59,14 @@ else
     echo "  -> WARNING: ${DTS_FILE} not found! Skipping overlay compilation."
 fi
 
+# Keypad is polled over I2C by the app (no kernel gpio-keys); remove any stale rule
+rm -f /etc/udev/rules.d/99-gpio-keys.rules
+
+if [ -n "$REAL_USER" ] && id "$REAL_USER" >/dev/null 2>&1; then
+    usermod -a -G input,video,gpio,i2c,spi "$REAL_USER" 2>/dev/null || true
+    echo "  -> Added $REAL_USER to input, video, gpio, i2c, and spi groups"
+fi
+
 # 3. Configure Raspberry Pi Boot Config (/boot/firmware/config.txt or /boot/config.txt)
 echo "[3/7] Updating boot config.txt..."
 CONFIG_TXT="/boot/firmware/config.txt"
@@ -75,15 +83,17 @@ if [ -f "$CONFIG_TXT" ]; then
         fi
     }
 
-    echo "" >> "$CONFIG_TXT"
-    echo "# --- RATT App Hardware Configuration ---" >> "$CONFIG_TXT"
+    if ! grep -qF "# --- RATT App Hardware Configuration ---" "$CONFIG_TXT"; then
+        echo "" >> "$CONFIG_TXT"
+        echo "# --- RATT App Hardware Configuration ---" >> "$CONFIG_TXT"
+    fi
     append_if_missing "dtparam=i2c_arm=on"
     append_if_missing "dtoverlay=ratt"
     append_if_missing "dtparam=spi=on"
     append_if_missing "dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=270"
     append_if_missing "dtparam=i2s=on"
     append_if_missing "dtoverlay=hifiberry-dac"
-    append_if_missing "dtoverlay=i2s-mmap"
+    # NOTE: dtoverlay=i2s-mmap is deprecated/removed on modern kernels (built into bcm2835-i2s)
 else
     echo "  -> WARNING: Could not find boot config.txt at /boot/firmware/config.txt or /boot/config.txt"
 fi
@@ -187,7 +197,7 @@ ConditionPathExists=/data/ratt/ratt.ini
 After=network.target
 
 [Service]
-Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
 Environment=QT_QUICK_BACKEND=software
 WorkingDirectory=${SCRIPT_DIR}
 ExecStart=/usr/bin/python3 ${SCRIPT_DIR}/ratt.py --ini /data/ratt/ratt.ini
@@ -221,5 +231,5 @@ echo " To start RATT service manually now:"
 echo "   sudo systemctl start ratt.service"
 echo ""
 echo " Or run interactively:"
-echo "   QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0 QT_QUICK_BACKEND=software ./ratt.py"
+echo "   QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1 QT_QUICK_BACKEND=software ./ratt.py"
 echo "========================================================"

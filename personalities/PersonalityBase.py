@@ -482,16 +482,21 @@ class PersonalityBase(PersonalityStateMachine):
         self.app.rfid.serialOut('%s.%s\n' % (state, phase))
 
     def _init_native_keypad(self):
-        """Bakes the broken 16-bit IO Expander Keypad interrupts entirely into a pure native QTimer polling bypass!"""
+        """Fallback keypad polling for environments where kernel gpio-keys driver is not active."""
         from PyQt5.QtCore import QTimer, Qt
 
-        # Allocate standard polling pins without Edge interrupts
-        self.keypad_pins = {
-            self.GPIO_PIN_BTN_ESC: self.gpio.alloc_pin(self.GPIO_PIN_BTN_ESC, GPIO.INPUT, active_low=1),
-            self.GPIO_PIN_BTN_DOWN: self.gpio.alloc_pin(self.GPIO_PIN_BTN_DOWN, GPIO.INPUT, active_low=1),
-            self.GPIO_PIN_BTN_UP: self.gpio.alloc_pin(self.GPIO_PIN_BTN_UP, GPIO.INPUT, active_low=1),
-            self.GPIO_PIN_BTN_ENTER: self.gpio.alloc_pin(self.GPIO_PIN_BTN_ENTER, GPIO.INPUT, active_low=1)
-        }
+        # Attempt to allocate standard polling pins
+        try:
+            self.keypad_pins = {
+                self.GPIO_PIN_BTN_ESC: self.gpio.alloc_pin(self.GPIO_PIN_BTN_ESC, GPIO.INPUT, active_low=1),
+                self.GPIO_PIN_BTN_DOWN: self.gpio.alloc_pin(self.GPIO_PIN_BTN_DOWN, GPIO.INPUT, active_low=1),
+                self.GPIO_PIN_BTN_UP: self.gpio.alloc_pin(self.GPIO_PIN_BTN_UP, GPIO.INPUT, active_low=1),
+                self.GPIO_PIN_BTN_ENTER: self.gpio.alloc_pin(self.GPIO_PIN_BTN_ENTER, GPIO.INPUT, active_low=1)
+            }
+        except Exception as e:
+            self.logger.info(f"Kernel gpio-keys overlay is active for keypad (or pins unavailable); skipping raw GPIO polling: {e}")
+            self.keypad_pins = {}
+            return
 
         self.keypad_codes = {
             self.GPIO_PIN_BTN_ESC: Qt.Key_Escape,
@@ -512,6 +517,10 @@ class PersonalityBase(PersonalityStateMachine):
         from PyQt5.QtCore import QCoreApplication, QEvent, Qt
 
         window = QGuiApplication.instance().focusWindow()
+        if not window:
+            top_windows = QGuiApplication.topLevelWindows()
+            if top_windows:
+                window = top_windows[0]
         if not window:
             return
 

@@ -49,7 +49,10 @@ class SignalStreamHandler(QObject, logging.StreamHandler):
         logging.StreamHandler.__init__(self)
 
     def emit(self, record):
-        self.logEvent.emit(record.asctime, record.name, record.levelname, record.message)
+        try:
+            self.logEvent.emit(record.asctime, record.name, record.levelname, record.message)
+        except (RuntimeError, Exception):
+            pass
 
 
 class Logger(QObject):
@@ -137,28 +140,57 @@ class Logger(QObject):
     def debug(self, msg, *args, **kwargs):
         self.log.debug(msg, *args, **kwargs)
 
+    def close(self):
+        try:
+            qInstallMessageHandler(None)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'sig') and self.sig:
+                logging.getLogger('').removeHandler(self.sig)
+                self.sig = None
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'console') and self.console:
+                logging.getLogger('').removeHandler(self.console)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'handler') and self.handler:
+                self.log.removeHandler(self.handler)
+                self.handler.close()
+        except Exception:
+            pass
+
     def qtDebugHandler(self, mode, context, message):
-        if mode == QtInfoMsg:
-            self.qtlog.info(message)
-        elif mode == QtWarningMsg:
-            self.qtlog.warning(message)
-        elif mode == QtCriticalMsg:
-            self.qtlog.critical(message)
-        elif mode == QtFatalMsg:
-            self.qtlog.error(message)
-        else:
-            self.qtlog.debug(message)
+        try:
+            if mode == QtInfoMsg:
+                self.qtlog.info(message)
+            elif mode == QtWarningMsg:
+                self.qtlog.warning(message)
+            elif mode == QtCriticalMsg:
+                self.qtlog.critical(message)
+            elif mode == QtFatalMsg:
+                self.qtlog.error(message)
+            else:
+                self.qtlog.debug(message)
+        except Exception:
+            pass
 
     def qtVerboseDebugHandler(self, mode, context, message):
-        msg = '[line %d, func %s(), file %s]: %s' % (context.line, context.function, context.file, message)
+        try:
+            msg = '[line %d, func %s(), file %s]: %s' % (context.line, context.function, context.file, message)
 
-        if mode == QtInfoMsg:
-            self.qtlog.info(msg)
-        elif mode == QtWarningMsg:
-            self.qtlog.warning(msg)
-        elif mode == QtCriticalMsg:
-            self.qtlog.critical(msg)
-        elif mode == QtFatalMsg:
-            self.qtlog.error(msg)
-        else:
-            self.qtlog.debug(msg)
+            if mode == QtInfoMsg:
+                self.qtlog.info(msg)
+            elif mode == QtWarningMsg:
+                self.qtlog.warning(msg)
+            elif mode == QtCriticalMsg:
+                self.qtlog.critical(msg)
+            elif mode == QtFatalMsg:
+                self.qtlog.error(msg)
+            else:
+                self.qtlog.debug(msg)
+        except Exception:
+            pass
