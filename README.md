@@ -20,20 +20,27 @@ Reboot after installation.
 
 ## Production Deployment: Read-Only Root & Persistent Data
 
-For production RATT nodes, it is highly recommended to make the root partition read-only to prevent SD card corruption on sudden power loss. However, RATT requires a persistent `/data` partition for ACL caches, logs, and `ratt.ini`.
+For production RATT nodes, the root filesystem runs **Native Read-Only** to prevent SD card corruption on sudden power loss, while a dedicated 1 GB `/data` partition (`p3`) stores persistent files (`ratt.ini`, ACL caches, certs, and bounded system logs in `/data/log`).
 
-> **Automated:** [`scripts/platform-setup.sh`](scripts/platform-setup.sh) creates the `/data` partition (and the LCD boot splash, cmdline tweaks) on a fresh card before first boot, and [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) prepares a golden image for cloning. See [OS_PACKAGING.md](OS_PACKAGING.md). The manual steps below are kept for reference.
+> **Automated:** [`scripts/platform-setup.sh`](scripts/platform-setup.sh) configures native read-only root, creates the `/data` partition, sets up user `ratt` with passwordless sudo (and optional `--ssh-key` injection), sets up the LCD boot splash, and redirects system logs to `/data/log` on a fresh card before first boot. [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) prepares a golden image for cloning. See [OS_PACKAGING.md](OS_PACKAGING.md).
 
-Because Raspberry Pi OS automatically expands the root partition to fill the entire SD card on its first boot, you must intervene **before** the first boot to reserve space for a data partition:
+### In-Place Maintenance & Updates (Zero Reboots)
+Because root is mounted read-only at the block level rather than using a memory overlay, in-place updates do not require reboots:
+```bash
+# Unlock root to read-write:
+sudo scripts/ratt-rw
 
-1. **Flash the SD Card:** Use Raspberry Pi Imager to flash Debian Trixie to your SD card.
-2. **Prevent Auto-Expansion:** Before putting the SD card in the Pi, mount the `rootfs` partition on your Linux PC.
-3. **Disable the Resize Script:** Delete the auto-resize script located at `/etc/init.d/resize2fs_once` (or remove `init=/usr/lib/raspi-config/init_resize.sh` from `cmdline.txt` on the boot partition, depending on the OS version).
-4. **Boot the Pi:** Insert the SD card and boot. The root partition will remain at its original image size (~3-4 GB), leaving the rest of the SD card unallocated.
-5. **Create the Data Partition:** On the Pi, use `fdisk /dev/mmcblk0` to create a 3rd partition (`/dev/mmcblk0p3`) in the free space. Format it with `sudo mkfs.ext4 /dev/mmcblk0p3`.
-6. **Mount it:** Add `/dev/mmcblk0p3 /data ext4 defaults 0 2` to `/etc/fstab` and run `sudo mount /data`.
-7. **Run Setup:** Run `setup.sh` as normal.
-8. **Enable Read-Only Mode:** Finally, run `sudo raspi-config`, navigate to **Performance Options -> Overlay File System**, and enable it. The Pi will now boot with a read-only root filesystem (writing OS changes to RAM), while your `/data` partition remains fully persistent and safe!
+# Perform git pull, edit configs, or run updates:
+git pull
+# or: sudo ./setup.sh (setup.sh automatically handles unlocking/locking)
+
+# Lock root back down to read-only:
+sudo scripts/ratt-ro
+```
+You can also run a single command in read-write mode with automatic re-locking:
+```bash
+sudo scripts/ratt-rw git pull
+```
 
 ---
 

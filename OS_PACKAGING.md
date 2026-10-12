@@ -10,7 +10,7 @@ to things the **app needs to install** ([`setup.sh`](setup.sh)).
 
 | Layer | What | Script | Runs |
 |---|---|---|---|
-| **Platform** | Fixed root + 1 GB `/data` partition, fstab, `cmdline.txt`, LCD boot splash, no console on LCD | [`scripts/platform-setup.sh`](scripts/platform-setup.sh) | On a Linux **host**, against the unmounted, **never-booted** card/image |
+| **Platform** | Fixed root + 1 GB `/data` partition, fstab, `cmdline.txt`, LCD boot splash, user `ratt` + passwordless sudo, optional `authorized_keys`, no console on LCD | [`scripts/platform-setup.sh`](scripts/platform-setup.sh) | On a Linux **host**, against the unmounted, **never-booted** card/image |
 | **App** | apt packages, `ratt.dtbo`, `config.txt` dtoverlays, `ratt.service`, `/data/ratt/ratt.ini`, ALSA dmix, user groups, freeing the RFID serial port | [`setup.sh`](setup.sh) | On the Pi |
 | **Capture** | Wipe host keys, machine-id, leases, caches, history; trim image | [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) | On the host, against the unmounted card/image, right before capture |
 
@@ -23,17 +23,49 @@ the data goes on the root filesystem).
 
 ```bash
 # 1. Host: flash Raspberry Pi OS Lite (Trixie) to a card, DON'T boot it, then:
-sudo scripts/platform-setup.sh /dev/sdX          # or an .img file
-#    (ROOT_SIZE=6G DATA_SIZE=1G by default; override via env)
+#    (Pass --ssh-key to inject your SSH public key into ~ratt/.ssh/authorized_keys)
+sudo scripts/platform-setup.sh /dev/sdX --ssh-key ~/.ssh/id_ed25519.pub
+#    (or pass an .img file; ROOT_SIZE=6G DATA_SIZE=1G by default)
 
-# 2. Pi: boot the card, confirm `findmnt /data` shows the data partition, then:
+# 2. Pi: boot the card, SSH in as 'ratt' (passwordless sudo enabled):
+ssh ratt@<pi-ip>
+#    confirm `findmnt /data` shows the data partition, then:
 git clone ... ratt-app && cd ratt-app && sudo ./setup.sh
 #    configure /data/ratt/ratt.ini as needed, test, then shut down cleanly
 
 # 3. Host: card back in the reader:
-sudo scripts/sanitize-image.sh /dev/sdX          # prints the dd command to capture
+sudo scripts/sanitize-image.sh /dev/sdX          # wipes keys/caches; prints exact dd command
 #    (or pass an .img file: it gets truncated to the end of the last partition)
+#    pass --reset-cloud-init if you want Raspberry Pi Imager user-data to re-apply per clone
+
+# 4. Host: capture & compress for Raspberry Pi Imager:
+# Capture ONLY through the end of the data partition (use the byte count from step 3):
+sudo dd if=/dev/sdX of=ratt-golden.img bs=4M count=<BYTES> iflag=count_bytes status=progress
+
+# Compress (Raspberry Pi Imager natively supports .xz, .zip, and .zst):
+xz -T0 -v -9 ratt-golden.img                     # creates ratt-golden.img.xz (~1–2 GB)
+#    (or: zip -9 ratt-golden.img.zip ratt-golden.img)
+
+# Optional: generate checksum for distribution:
+sha256sum ratt-golden.img.xz > ratt-golden.img.xz.sha256
 ```
+
+### Flashing Clones with Raspberry Pi Imager
+1. Open **Raspberry Pi Imager**.
+2. **Choose Device**: Select **Raspberry Pi Zero 2 W** (or target Pi model).
+3. **Choose OS**: Scroll to the very bottom, choose **Use custom**, and select `ratt-golden.img.xz`. (The Imager natively reads and decompresses `.xz` on the fly without needing manual extraction).
+4. **Choose Storage**: Select your target SD card.
+5. **OS Customization** (the gear icon / edit settings prompt):
+   - If `--reset-cloud-init` was included during sanitization in Step 3, Imager's customization dialog can safely configure each card's unique hostname, Wi-Fi SSID/password, and user credentials on first boot.
+6. Click **Write**.
+
+> [!TIP]
+> **Maximum compression:** Before running `dd` or `xz`, you can zero out deleted file space so empty blocks compress down to near zero. On the host:
+> ```bash
+> sudo zerofree /dev/sdX2
+> sudo zerofree /dev/sdX3
+> ```
+> (Requires `sudo apt install zerofree`). With unallocated space already truncated and free space zeroed, the compressed image is typically under 1.5 GB.
 
 ---
 
@@ -100,6 +132,57 @@ This moved out of `setup.sh`.
 - `--reset-cloud-init` (off by default) wipes `/var/lib/cloud`, so cloud-init re-applies
   Imager user-data (user, Wi-Fi, hostname) on every clone.
 
+### 3.6 User `ratt`, passwordless sudo, and SSH keys
+- **User `ratt` is created offline** by `platform-setup.sh` directly in the target root filesystem (`/etc/passwd`, `/etc/shadow`, `/etc/group`), along with `/home/ratt` skeleton files.
+- **Passwordless sudo:** `platform-setup.sh` installs `/etc/sudoers.d/010_ratt-nopasswd`:
+  ```sudoers
+  ratt ALL=(ALL) NOPASSWD: ALL
+  ```
+  with mode `0440` and root ownership, allowing `ratt` to execute sudo commands without a password prompt.
+- **Hardware groups:** `ratt` is added to `sudo`, `input`, `video`, `gpio`, `i2c`, and `spi` groups (in `platform-setup.sh` and confirmed by `setup.sh`).
+- **Adding SSH keys to `~ratt/.ssh/authorized_keys`:**
+  - **Option A (during `platform-setup.sh`):** Pass your public key file directly to the script on the host:
+    ```bash
+    sudo scripts/platform-setup.sh /dev/sdX --ssh-key ~/.ssh/id_ed25519.pub
+    # or pass an existing authorized_keys file:
+    sudo scripts/platform-setup.sh /dev/sdX ~/.ssh/authorized_keys
+    ```
+    The script creates `~ratt/.ssh/authorized_keys` with mode `0600` and `ratt:ratt` ownership, appending any non-duplicate keys.
+  - **Option B (manual copy on host):** If the SD card is mounted on your workstation:
+    ```bash
+    mkdir -p <mount-root>/home/ratt/.ssh
+    cat ~/.ssh/id_ed25519.pub >> <mount-root>/home/ratt/.ssh/authorized_keys
+    chmod 700 <mount-root>/home/ratt/.ssh
+    chmod 600 <mount-root>/home/ratt/.ssh/authorized_keys
+    chown -R 1000:1000 <mount-root>/home/ratt/.ssh
+    ```
+  - **Option C (via network after first boot):**
+    ```bash
+    ssh-copy-id -i ~/.ssh/id_ed25519.pub ratt@<pi-ip>
+    ```
+
+### 3.7 Native Read-Only Root & Maintenance Workflow
+Instead of `raspi-config`'s RAM-heavy OverlayFS (which requires two reboots to make changes and exhausts the 512 MB RAM on a Pi Zero 2 W), RATT uses **Native Read-Only Root**:
+
+* **Filesystem mounts in `/etc/fstab`:**
+  * `/` & `/boot/firmware`: Mounted **`ro`** by default.
+  * `/tmp` & `/var/tmp`: Mounted on `tmpfs` (RAM).
+  * `/data`: Persistent ext4 partition on `p3` (`defaults,noatime,nofail`).
+  * `/var/log`: Bind-mounted to `/data/log` (`none bind,nofail`).
+* **Persistent, bounded logging:**
+  * `systemd-journald` flushes early-boot logs to `/var/log` (physically `/data/log`).
+  * Capped at 50 MB max in `/etc/systemd/journald.conf.d/00-ratt.conf` (`SystemMaxUse=50M`), so logs never exhaust `/data`.
+* **Self-Healing `/data` Auto-Recovery:**
+  * `ratt-data-check.service` runs before `local-fs.target`.
+  * If the `/data` partition ever suffers severe corruption, it automatically reformats it with `mkfs.ext4`, re-creates directories (`/data/ratt`, `/data/certs`, `/data/log`), and copies `ratt.ini-example`. The node **always boots** without hanging at an emergency console.
+* **Clock persistence:** `fake-hwclock` writes to `/data/fake-hwclock.data` instead of the read-only root.
+* **Maintenance & In-Place Updates (Zero Reboots):**
+  Tracked in [`scripts/`](scripts/):
+  * `sudo scripts/ratt-rw` (or `sudo ratt-rw`): unlocks `/` and `/boot/firmware` to **read-write**.
+  * `sudo scripts/ratt-ro` (or `sudo ratt-ro`): locks the filesystem back down to **read-only**.
+  * `sudo scripts/ratt-rw <cmd>`: executes `<cmd>` in read-write mode and automatically re-locks upon exit (e.g. `sudo scripts/ratt-rw git pull`).
+  * [`setup.sh`](setup.sh) automatically detects when root is read-only, remounts read-write during installation, and re-locks read-only when done.
+
 ---
 
 ## 4. Still open
@@ -107,8 +190,6 @@ This moved out of `setup.sh`.
   Options: Imager settings per card, cloud-init user-data with `--reset-cloud-init`, or a
   first-boot rename (e.g. from the MAC address).
 - **Per-node certs** in `/data/certs`: provision after flashing, not in the image.
-- **Read-only root** (README suggests it). Separate project. `/data` being its own partition
-  is the prerequisite, and that's now done.
 
 ## 5. Gotchas
 - `platform-setup.sh` refuses a card that has **already been booted**, because root has

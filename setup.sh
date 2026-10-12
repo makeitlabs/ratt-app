@@ -13,6 +13,14 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+IS_RO=0
+if ! [ -w / ]; then
+  echo "  -> Root filesystem is read-only; remounting read-write for setup..."
+  mount -o remount,rw /
+  mount -o remount,rw /boot/firmware 2>/dev/null || mount -o remount,rw /boot 2>/dev/null || true
+  IS_RO=1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REAL_USER="${SUDO_USER:-$USER}"
 
@@ -62,10 +70,12 @@ fi
 # Keypad is polled over I2C by the app (no kernel gpio-keys); remove any stale rule
 rm -f /etc/udev/rules.d/99-gpio-keys.rules
 
-if [ -n "$REAL_USER" ] && id "$REAL_USER" >/dev/null 2>&1; then
-    usermod -a -G input,video,gpio,i2c,spi "$REAL_USER" 2>/dev/null || true
-    echo "  -> Added $REAL_USER to input, video, gpio, i2c, and spi groups"
-fi
+for u in "$REAL_USER" "ratt"; do
+    if [ -n "$u" ] && id "$u" >/dev/null 2>&1; then
+        usermod -a -G input,video,gpio,i2c,spi "$u" 2>/dev/null || true
+        echo "  -> Added $u to input, video, gpio, i2c, and spi groups"
+    fi
+done
 
 # 3. Configure Raspberry Pi Boot Config (/boot/firmware/config.txt or /boot/config.txt)
 echo "[3/7] Updating boot config.txt..."
@@ -194,6 +204,13 @@ EOF
 
 systemctl daemon-reload
 systemctl enable ratt.service 2>/dev/null || true
+
+if [ "$IS_RO" -eq 1 ]; then
+    sync
+    echo "  -> Remounting root filesystem back to read-only..."
+    mount -o remount,ro /boot/firmware 2>/dev/null || mount -o remount,ro /boot 2>/dev/null || true
+    mount -o remount,ro /
+fi
 
 echo ""
 echo "========================================================"

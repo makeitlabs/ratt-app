@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Remount root (/) and boot partition in READ-ONLY mode.
+#
+# Usage:
+#   sudo scripts/ratt-ro
+#
+
+set -euo pipefail
+
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: must run as root (use sudo $0)" >&2
+    exit 1
+fi
+
+sync
+
+BOOT_MNT=""
+if mountpoint -q /boot/firmware; then
+    BOOT_MNT="/boot/firmware"
+elif mountpoint -q /boot; then
+    BOOT_MNT="/boot"
+fi
+
+if [ -n "$BOOT_MNT" ]; then
+    echo "==> Remounting $BOOT_MNT as READ-ONLY..."
+    mount -o remount,ro "$BOOT_MNT" 2>/dev/null || true
+fi
+
+echo "==> Remounting root (/) as READ-ONLY..."
+mount -o remount,ro /
+
+echo "Filesystem is now locked READ-ONLY."

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# Remount root (/) and boot partition in READ-WRITE mode for maintenance.
+#
+# Usage:
+#   sudo scripts/ratt-rw                 # remounts RW and leaves it unlocked
+#   sudo scripts/ratt-rw <command...>    # runs command in RW mode, then re-locks to RO
+#
+
+set -euo pipefail
+
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: must run as root (use sudo $0)" >&2
+    exit 1
+fi
+
+BOOT_MNT=""
+if mountpoint -q /boot/firmware; then
+    BOOT_MNT="/boot/firmware"
+elif mountpoint -q /boot; then
+    BOOT_MNT="/boot"
+fi
+
+if [ "$#" -gt 0 ]; then
+    echo "==> Temporarily unlocking root filesystem (READ-WRITE)..."
+    mount -o remount,rw /
+    [ -n "$BOOT_MNT" ] && mount -o remount,rw "$BOOT_MNT" 2>/dev/null || true
+
+    cleanup() {
+        sync
+        echo "==> Re-locking root filesystem (READ-ONLY)..."
+        [ -n "$BOOT_MNT" ] && mount -o remount,ro "$BOOT_MNT" 2>/dev/null || true
+        mount -o remount,ro /
+    }
+    trap cleanup EXIT
+
+    "$@"
+    exit $?
+fi
+
+echo "==> Remounting root (/) as READ-WRITE..."
+mount -o remount,rw /
+
+if [ -n "$BOOT_MNT" ]; then
+    echo "==> Remounting $BOOT_MNT as READ-WRITE..."
+    mount -o remount,rw "$BOOT_MNT" 2>/dev/null || true
+fi
+
+echo "Filesystem is now READ-WRITE."
+echo "When finished, lock it back with: sudo scripts/ratt-ro (or ratt-ro)"
