@@ -51,9 +51,21 @@ SPLASH_SRC="${SPLASH_SRC:-${REPO_DIR}/gui/images/ratt_bootscreen.png}"
 die()  { echo "ERROR: $*" >&2; exit 1; }
 info() { echo "==> $*"; }
 
+# Check for explicit --local flag
+for a in "$@"; do
+    if [ "$a" = "--local" ]; then
+        shift
+        exec "${SCRIPT_DIR}/pi-platform-setup.sh" "$@"
+    fi
+done
+
 TARGET=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --local)
+            shift
+            exec "${SCRIPT_DIR}/pi-platform-setup.sh" "$@"
+            ;;
         --ssh-key|-k)
             [ "$#" -ge 2 ] || die "$1 requires a filename argument"
             SSH_KEY_FILE="$2"
@@ -79,7 +91,13 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-[ -n "$TARGET" ] || die "usage: sudo $0 <block-device | image-file> [--ssh-key <authorized_key_file>]"
+# If no target specified and running on a live Raspberry Pi, delegate to pi-platform-setup.sh
+if [ -z "$TARGET" ] && [ -f /proc/device-tree/model ]; then
+    info "Detected local Raspberry Pi ($(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo 'Pi')). Running local setup..."
+    exec "${SCRIPT_DIR}/pi-platform-setup.sh" ${SSH_KEY_FILE:+--ssh-key "$SSH_KEY_FILE"}
+fi
+
+[ -n "$TARGET" ] || die "usage: sudo $0 <block-device | image-file> [--ssh-key <authorized_key_file>]\n       sudo $0 --local (to run on live Pi directly)"
 [ "$EUID" -eq 0 ] || die "must run as root"
 
 for c in parted partprobe partx e2fsck resize2fs mkfs.ext4 blkid blockdev losetup numfmt udevadm; do
@@ -261,6 +279,15 @@ SystemMaxFileSize=10M
 MaxRetentionSec=1month
 EOF
 
+# Configure rpi-swap to pure zram (in-memory) to prevent /var/swap loop device locking rootfs
+info "rpi-swap: configure pure zram swap (no disk swapfile on root)"
+mkdir -p "$ROOT/etc/rpi/swap.conf.d"
+cat > "$ROOT/etc/rpi/swap.conf.d/00-ratt.conf" <<'EOF'
+[Main]
+Mechanism=zram
+EOF
+rm -f "$ROOT/var/swap"
+
 # Install /data self-healing check service (auto-reformat if severely corrupt so appliance always boots)
 info "Installing /data partition auto-recovery service"
 cat > "$ROOT/usr/local/sbin/ratt-data-check.sh" <<'EOF'
@@ -270,20 +297,27 @@ if [ -z "$DATA_DEV" ] || [ ! -b "$DATA_DEV" ]; then
     exit 0
 fi
 
+# If already mounted, nothing to do
+if grep -qs "$DATA_DEV" /proc/mounts || mountpoint -q /data 2>/dev/null; then
+    exit 0
+fi
+
 set +e
 e2fsck -p "$DATA_DEV"
 rc=$?
 set -e
 
-if [ "$rc" -ge 4 ]; then
+if [ "$rc" -ge 4 ] && [ "$rc" -ne 8 ]; then
     echo "WARNING: /data partition ($DATA_DEV) corrupted (e2fsck code $rc); auto-reformatting..."
     mkfs.ext4 -F -q -L data "$DATA_DEV"
     TMPMNT=$(mktemp -d)
     mount "$DATA_DEV" "$TMPMNT"
-    mkdir -p "$TMPMNT/ratt" "$TMPMNT/certs" "$TMPMNT/log"
+    mkdir -p "$TMPMNT/ratt" "$TMPMNT/certs" "$TMPMNT/log" "$TMPMNT/timesync"
+    chown -R 1000:1000 "$TMPMNT/ratt" "$TMPMNT/certs" 2>/dev/null || true
     for ini in /home/*/ratt-app/conf/ratt.ini-example; do
         if [ -f "$ini" ]; then
             cp "$ini" "$TMPMNT/ratt/ratt.ini"
+            chown 1000:1000 "$TMPMNT/ratt/ratt.ini" 2>/dev/null || true
             break
         fi
     done

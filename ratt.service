@@ -1,7 +1,8 @@
 [Unit]
 Description=RATT Access Control Application
+RequiresMountsFor=/data /tmp
 ConditionPathExists=/data/ratt/ratt.ini
-After=network.target
+After=network.target local-fs.target data.mount tmp.mount
 
 [Service]
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1

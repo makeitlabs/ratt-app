@@ -10,7 +10,7 @@ to things the **app needs to install** ([`setup.sh`](setup.sh)).
 
 | Layer | What | Script | Runs |
 |---|---|---|---|
-| **Platform** | Fixed root + 1 GB `/data` partition, fstab, `cmdline.txt`, LCD boot splash, user `ratt` + passwordless sudo, optional `authorized_keys`, no console on LCD | [`scripts/platform-setup.sh`](scripts/platform-setup.sh) | On a Linux **host**, against the unmounted, **never-booted** card/image |
+| **Platform** | Fixed root + 1 GB `/data` partition, fstab, `cmdline.txt`, LCD boot splash, user `ratt` + passwordless sudo, optional `authorized_keys`, no console on LCD | [`scripts/platform-setup.sh`](scripts/platform-setup.sh)<br>*(or [`scripts/pi-platform-setup.sh`](scripts/pi-platform-setup.sh))* | On a Linux **host** against unmounted card/image,<br>or **directly on the live Pi** |
 | **App** | apt packages, `ratt.dtbo`, `config.txt` dtoverlays, `ratt.service`, `/data/ratt/ratt.ini`, ALSA dmix, user groups, freeing the RFID serial port | [`setup.sh`](setup.sh) | On the Pi |
 | **Capture** | Wipe host keys, machine-id, leases, caches, history; trim image | [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) | On the host, against the unmounted card/image, right before capture |
 

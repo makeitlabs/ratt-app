@@ -22,7 +22,7 @@ Reboot after installation.
 
 For production RATT nodes, the root filesystem runs **Native Read-Only** to prevent SD card corruption on sudden power loss, while a dedicated 1 GB `/data` partition (`p3`) stores persistent files (`ratt.ini`, ACL caches, certs, and bounded system logs in `/data/log`).
 
-> **Automated:** [`scripts/platform-setup.sh`](scripts/platform-setup.sh) configures native read-only root, creates the `/data` partition, sets up user `ratt` with passwordless sudo (and optional `--ssh-key` injection), sets up the LCD boot splash, and redirects system logs to `/data/log` on a fresh card before first boot. [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) prepares a golden image for cloning. See [OS_PACKAGING.md](OS_PACKAGING.md).
+> **Automated:** [`scripts/platform-setup.sh`](scripts/platform-setup.sh) configures native read-only root, creates the `/data` partition, sets up user `ratt` with passwordless sudo (and optional `--ssh-key` injection), sets up the LCD boot splash, and redirects system logs to `/data/log` on a fresh card before first boot. When configuring a **live Raspberry Pi directly**, run [`scripts/pi-platform-setup.sh`](scripts/pi-platform-setup.sh) (fully idempotent). [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) prepares a golden image for cloning. See [OS_PACKAGING.md](OS_PACKAGING.md).
 
 ### In-Place Maintenance & Updates (Zero Reboots)
 Because root is mounted read-only at the block level rather than using a memory overlay, in-place updates do not require reboots:

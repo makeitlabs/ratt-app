@@ -1,0 +1,57 @@
+#!/bin/sh
+case "$1" in
+prereqs)
+    exit 0
+    ;;
+esac
+
+exec > /run/shrink.log 2>&1
+echo "=== ratt-shrink-root started ==="
+
+if [ -b /dev/mmcblk0p3 ]; then
+    echo "p3 already exists, exiting"
+    exit 0
+fi
+
+echo "Running e2fsck -f -y..."
+/sbin/e2fsck -f -y /dev/mmcblk0p2
+echo "e2fsck rc=$?"
+
+echo "Running resize2fs -f -F to 5500M..."
+/sbin/resize2fs -f -F /dev/mmcblk0p2 5500M
+echo "resize2fs rc=$?"
+
+echo "Updating partition table with sfdisk..."
+/sbin/sfdisk --force /dev/mmcblk0 <<'SFDISK_EOF'
+label: dos
+label-id: 0x27b94958
+device: /dev/mmcblk0
+unit: sectors
+sector-size: 512
+
+/dev/mmcblk0p1 : start=       16384, size=     1048576, type=c
+/dev/mmcblk0p2 : start=     1064960, size=    11534336, type=83
+/dev/mmcblk0p3 : start=    12601344, size=     2922463, type=83
+SFDISK_EOF
+echo "sfdisk rc=$?"
+
+sleep 2
+if [ -x /sbin/udevadm ]; then
+    /sbin/udevadm settle || true
+fi
+ls -l /dev/mmcblk0*
+
+if [ -b /dev/mmcblk0p3 ]; then
+    echo "Formatting p3..."
+    /sbin/mke2fs -F -q -t ext4 -L data /dev/mmcblk0p3
+    echo "mke2fs rc=$?"
+else
+    echo "ERROR: p3 did not appear"
+fi
+
+echo "Expanding p2 to fill partition..."
+/sbin/resize2fs -f -F /dev/mmcblk0p2
+echo "resize2fs p2 rc=$?"
+
+echo "=== ratt-shrink-root finished ==="
+exit 0
