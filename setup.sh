@@ -21,6 +21,16 @@ if ! [ -w / ]; then
   IS_RO=1
 fi
 
+# The boot partition holds config.txt and the static RATT config (/boot/firmware/ratt);
+# make sure it's writable even if only it (and not /) is mounted read-only.
+BOOT_RO=0
+BOOT_MNT=/boot/firmware
+[ -d "$BOOT_MNT" ] || BOOT_MNT=/boot
+if mountpoint -q "$BOOT_MNT" && ! [ -w "$BOOT_MNT" ]; then
+  mount -o remount,rw "$BOOT_MNT"
+  BOOT_RO=1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REAL_USER="${SUDO_USER:-$USER}"
 
@@ -178,36 +188,61 @@ ctl.dmixer {
 EOF
 
 # 7. Application Configuration & Systemd Service
-echo "[7/7] Setting up RATT data directory and systemd service..."
-# ratt.ini, ACL cache, remote config cache and certs all live under /data.
-# On production images /data is its own partition (LABEL=data, created by
-# scripts/platform-setup.sh). Warn if it isn't, so data doesn't silently land on rootfs.
-if ! mountpoint -q /data; then
-    echo "  -> WARNING: /data is not a mounted partition; RATT data will live on the root filesystem."
-    echo "     (Fine for dev boxes. For production, prepare the card with scripts/platform-setup.sh.)"
-fi
-mkdir -p /data/ratt /data/certs
+echo "[7/7] Setting up RATT config, data directory and systemd service..."
+# STATIC per-node config is read-only, on the FAT boot partition (editable from
+# any PC by mounting the SD card):
+#   /boot/firmware/ratt/ratt.ini
+#   /boot/firmware/ratt/certs/{ca.crt,client.crt,client.key}
+# /data holds ONLY disposable, re-downloadable state (ACL + remote-config caches,
+# logs, clock file). ratt-data-check may reformat it if it's corrupt.
+RATT_CONF_DIR=/boot/firmware/ratt
+mkdir -p "$RATT_CONF_DIR/certs"
 
-if [ ! -f /data/ratt/ratt.ini ]; then
+# One-time migration from the old layout (ratt.ini + certs on /data).
+# Originals are left in place; delete them once the node is verified.
+if [ ! -f "$RATT_CONF_DIR/ratt.ini" ] && [ -f /data/ratt/ratt.ini ]; then
+    cp /data/ratt/ratt.ini "$RATT_CONF_DIR/ratt.ini"
+    sed -i 's#/data/certs/#/boot/firmware/ratt/certs/#g' "$RATT_CONF_DIR/ratt.ini"
+    echo "  + Migrated /data/ratt/ratt.ini -> $RATT_CONF_DIR/ratt.ini (cert paths rewritten)"
+fi
+if [ -d /data/certs ]; then
+    for f in /data/certs/*; do
+        [ -f "$f" ] || continue
+        if [ ! -e "$RATT_CONF_DIR/certs/$(basename "$f")" ]; then
+            cp "$f" "$RATT_CONF_DIR/certs/"
+            echo "  + Migrated $f -> $RATT_CONF_DIR/certs/"
+        fi
+    done
+fi
+
+if [ ! -f "$RATT_CONF_DIR/ratt.ini" ]; then
     if [ -f "${SCRIPT_DIR}/conf/ratt.ini-example" ]; then
-        cp "${SCRIPT_DIR}/conf/ratt.ini-example" /data/ratt/ratt.ini
-        echo "  + Initialized default /data/ratt/ratt.ini from example template"
+        cp "${SCRIPT_DIR}/conf/ratt.ini-example" "$RATT_CONF_DIR/ratt.ini"
+        echo "  + Initialized default $RATT_CONF_DIR/ratt.ini from example template"
     fi
 fi
+
+# On production images /data is its own partition (LABEL=data, created by
+# scripts/platform-setup.sh). Warn if it isn't, so caches don't silently land on rootfs.
+if ! mountpoint -q /data; then
+    echo "  -> WARNING: /data is not a mounted partition; RATT caches/logs will live on the root filesystem."
+    echo "     (Fine for dev boxes. For production, prepare the card with scripts/platform-setup.sh.)"
+fi
+mkdir -p /data/ratt
 
 # Install systemd service
 cat << EOF > /etc/systemd/system/ratt.service
 [Unit]
 Description=RATT Access Control Application
-ConditionPathExists=/data/ratt/ratt.ini
-RequiresMountsFor=/data
+ConditionPathExists=${RATT_CONF_DIR}/ratt.ini
+RequiresMountsFor=/data /boot/firmware
 After=network.target
 
 [Service]
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
 Environment=QT_QUICK_BACKEND=software
 WorkingDirectory=${SCRIPT_DIR}
-ExecStart=/usr/bin/python3 ${SCRIPT_DIR}/ratt.py --ini /data/ratt/ratt.ini
+ExecStart=/usr/bin/python3 ${SCRIPT_DIR}/ratt.py --ini ${RATT_CONF_DIR}/ratt.ini
 RestartSec=5
 Restart=on-failure
 
@@ -215,14 +250,103 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
+# Install ratt-hostname service (applies hostname from /boot/firmware/hostname.txt)
+cat > /usr/local/sbin/ratt-hostname.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+NEW_HOST=""
+for f in /boot/firmware/hostname.txt /boot/firmware/hostname \
+         /boot/firmware/ratt/hostname.txt /boot/firmware/ratt/hostname \
+         /boot/hostname.txt /boot/hostname; do
+    if [ -f "$f" ]; then
+        NEW_HOST="$(tr -d ' \r\t\n' < "$f")"
+        break
+    fi
+done
+
+if [ -z "$NEW_HOST" ]; then
+    for ini in /boot/firmware/ratt/ratt.ini /boot/ratt/ratt.ini /data/ratt/ratt.ini; do
+        if [ -f "$ini" ]; then
+            h="$(grep -E '^[[:space:]]*HostName[[:space:]]*=' "$ini" 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r\t\n' || true)"
+            if [ -n "$h" ]; then
+                NEW_HOST="$h"
+                break
+            fi
+        fi
+    done
+fi
+
+[ -n "$NEW_HOST" ] || exit 0
+
+NEW_HOST="$(echo "$NEW_HOST" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
+[ -n "$NEW_HOST" ] || exit 0
+
+CURRENT_HOST="$(tr -d ' \r\t\n' < /etc/hostname 2>/dev/null || true)"
+
+if [ "$NEW_HOST" != "$CURRENT_HOST" ]; then
+    echo "ratt-hostname: updating hostname from '$CURRENT_HOST' to '$NEW_HOST'..."
+    IS_RO=0
+    if ! [ -w / ]; then
+        mount -o remount,rw /
+        IS_RO=1
+    fi
+
+    echo "$NEW_HOST" > /etc/hostname
+
+    if [ -f /etc/hosts ]; then
+        if [ -n "$CURRENT_HOST" ] && grep -q "\b${CURRENT_HOST}\b" /etc/hosts; then
+            sed -i "s/\b${CURRENT_HOST}\b/${NEW_HOST}/g" /etc/hosts
+        elif grep -q "^127\.0\.1\.1" /etc/hosts; then
+            sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t${NEW_HOST}/" /etc/hosts
+        else
+            echo -e "127.0.1.1\t${NEW_HOST}" >> /etc/hosts
+        fi
+    fi
+
+    hostname "$NEW_HOST" 2>/dev/null || true
+
+    if [ "$IS_RO" -eq 1 ]; then
+        sync
+        mount -o remount,ro /
+    fi
+    echo "ratt-hostname: successfully applied hostname '$NEW_HOST'"
+fi
+exit 0
+EOF
+chmod 0755 /usr/local/sbin/ratt-hostname.sh
+chown root:root /usr/local/sbin/ratt-hostname.sh
+
+cat > /etc/systemd/system/ratt-hostname.service <<'EOF'
+[Unit]
+Description=RATT Apply Hostname from Boot Partition
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=network-pre.target sys-subsystem-net-devices.target systemd-hostnamed.service avahi-daemon.service ssh.service ratt.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ratt-hostname.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
 systemctl daemon-reload
 systemctl enable ratt.service 2>/dev/null || true
+systemctl enable ratt-hostname.service 2>/dev/null || true
 
 if [ "$IS_RO" -eq 1 ]; then
     sync
     echo "  -> Remounting root filesystem back to read-only..."
     mount -o remount,ro /boot/firmware 2>/dev/null || mount -o remount,ro /boot 2>/dev/null || true
     mount -o remount,ro /
+elif [ "$BOOT_RO" -eq 1 ]; then
+    sync
+    mount -o remount,ro "$BOOT_MNT" 2>/dev/null || true
 fi
 
 echo ""
@@ -236,7 +360,7 @@ echo "  3. Configured /boot/firmware/config.txt for GPIO, SPI, ST7789 display & 
 echo "  4. Configured video kernel drivers & blacklists."
 echo "  5. Disabled serial getty + kernel console on serial0/ttyS0/ttyAMA0 to free RFID serial port."
 echo "  6. Installed ALSA dmix software mixer configuration (/etc/asound.conf)."
-echo "  7. Initialized /data/ratt/ratt.ini and registered systemd service (ratt.service)."
+echo "  7. Initialized /boot/firmware/ratt/ratt.ini (+ certs/) and registered systemd service (ratt.service)."
 echo ""
 echo " NOTE: A reboot is recommended to load boot config, device tree overlays,"
 echo "       and display/audio drivers!"

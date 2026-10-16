@@ -72,7 +72,7 @@ class RattAppEngine(QQmlApplicationEngine):
         QQmlApplicationEngine.__init__(self)
 
         parser = argparse.ArgumentParser(description='RATT Application (Personality state machine and GUI).')
-        parser.add_argument('--ini', dest='inifile', default='/data/ratt/ratt.ini', help='path to .ini file e.g. /tmp/ratt-test.ini, default is /data/ratt/ratt.ini')
+        parser.add_argument('--ini', dest='inifile', default='/boot/firmware/ratt/ratt.ini', help='path to .ini file e.g. /tmp/ratt-test.ini, default is /boot/firmware/ratt/ratt.ini')
 
         args = parser.parse_args()
 

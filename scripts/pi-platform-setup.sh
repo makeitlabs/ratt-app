@@ -91,7 +91,8 @@ else
         mkdir -p /data
     fi
 fi
-mkdir -p /data/ratt /data/certs /data/log
+# /data: disposable state only (ACL/remote-config caches, logs, clock file)
+mkdir -p /data/ratt /data/log
 
 # ---------------------------------------------------------------- 2. read-only fstab
 info "[2/9] Checking /etc/fstab for Native Read-Only Root..."
@@ -135,6 +136,9 @@ for line in lines:
             if 'ro' not in opts: opts.append('ro')
             if 'rw' in opts: opts.remove('rw')
             if 'nofail' not in opts: opts.append('nofail')
+            # Holds RATT TLS key: root-only (FAT has no per-file permissions)
+            if not any(o.startswith(('fmask=', 'umask=')) for o in opts): opts.append('fmask=0077')
+            if not any(o.startswith(('dmask=', 'umask=')) for o in opts): opts.append('dmask=0077')
             parts[3] = ','.join(opts)
             line = f"{parts[0]:<20}  {parts[1]:<15}  {parts[2]:<6}  {parts[3]:<24}  {parts[4]}  {parts[5]}\n"
         elif mp == '/data':
@@ -160,6 +164,17 @@ with open(fstab_path, 'w') as f:
 PY
     info "  -> Configured /etc/fstab (takes effect on reboot or via ratt-ro)"
 fi
+
+# Static RATT config + TLS key live on the FAT boot partition (/boot/firmware/ratt).
+# FAT has no per-file permissions, so restrict the whole mount to root.
+# Separate from the block above so already-configured nodes get upgraded too.
+if awk '$1 !~ /^#/ && $2=="/boot/firmware" && $4 !~ /(fmask|umask)=/ {f=1} END {exit !f}' /etc/fstab; then
+    sed -i -E '/^[^#][^[:space:]]*[[:space:]]+\/boot\/firmware[[:space:]]/ s/^([^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+)([^[:space:]]+)/\1\2,fmask=0077,dmask=0077/' /etc/fstab
+    info "  -> Added fmask=0077,dmask=0077 to /boot/firmware in /etc/fstab (takes effect on reboot)"
+else
+    info "  -> /boot/firmware permissions already restricted in /etc/fstab; skipping"
+fi
+mkdir -p /boot/firmware/ratt/certs 2>/dev/null || warn "  -> could not create /boot/firmware/ratt/certs (boot partition read-only?); setup.sh will create it"
 
 # ---------------------------------------------------------------- 3. systemd-journald
 info "[3/9] Checking systemd-journald configuration..."
@@ -195,11 +210,18 @@ fi
 
 # ---------------------------------------------------------------- 4. /data auto-recovery service
 info "[4/9] Checking /data auto-recovery health check service..."
-if [ -f /etc/systemd/system/ratt-data-check.service ] && [ -x /usr/local/sbin/ratt-data-check.sh ]; then
-    info "  -> ratt-data-check.service already installed; skipping"
+# v1 of this script restored a template ratt.ini onto /data after reformatting;
+# v2 only recreates empty dirs (config now lives on /boot/firmware/ratt).
+if [ -f /etc/systemd/system/ratt-data-check.service ] && [ -x /usr/local/sbin/ratt-data-check.sh ] \
+   && grep -q 'ratt-data-check v2' /usr/local/sbin/ratt-data-check.sh; then
+    info "  -> ratt-data-check.service (v2) already installed; skipping"
 else
     cat > /usr/local/sbin/ratt-data-check.sh <<'EOF'
 #!/bin/bash
+# ratt-data-check v2
+# /data holds ONLY disposable state: ACL + remote-config caches (re-downloaded
+# from the auth server), logs, and the fake-hwclock file. Static config
+# (ratt.ini, TLS certs) is on /boot/firmware/ratt, so reformatting is safe.
 DATA_DEV="$(readlink -f /dev/disk/by-label/data 2>/dev/null || true)"
 if [ -z "$DATA_DEV" ] || [ ! -b "$DATA_DEV" ]; then
     exit 0
@@ -216,19 +238,11 @@ rc=$?
 set -e
 
 if [ "$rc" -ge 4 ] && [ "$rc" -ne 8 ]; then
-    echo "WARNING: /data partition ($DATA_DEV) corrupted (e2fsck code $rc); auto-reformatting..."
+    echo "WARNING: /data partition ($DATA_DEV) corrupted (e2fsck code $rc); reformatting (caches/logs only)..."
     mkfs.ext4 -F -q -L data "$DATA_DEV"
     TMPMNT=$(mktemp -d)
     mount "$DATA_DEV" "$TMPMNT"
-    mkdir -p "$TMPMNT/ratt" "$TMPMNT/certs" "$TMPMNT/log" "$TMPMNT/timesync"
-    chown -R 1000:1000 "$TMPMNT/ratt" "$TMPMNT/certs" 2>/dev/null || true
-    for ini in /home/*/ratt-app/conf/ratt.ini-example; do
-        if [ -f "$ini" ]; then
-            cp "$ini" "$TMPMNT/ratt/ratt.ini"
-            chown 1000:1000 "$TMPMNT/ratt/ratt.ini" 2>/dev/null || true
-            break
-        fi
-    done
+    mkdir -p "$TMPMNT/ratt" "$TMPMNT/log" "$TMPMNT/timesync"
     umount "$TMPMNT"
     rmdir "$TMPMNT"
 fi
@@ -256,6 +270,98 @@ EOF
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable ratt-data-check.service 2>/dev/null || true
     info "  -> Installed and enabled ratt-data-check.service"
+fi
+
+# Install ratt-hostname service: applies hostname from /boot/firmware/hostname.txt if present
+if [ -f /etc/systemd/system/ratt-hostname.service ] && [ -x /usr/local/sbin/ratt-hostname.sh ]; then
+    info "  -> ratt-hostname.service already installed; skipping"
+else
+    cat > /usr/local/sbin/ratt-hostname.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+NEW_HOST=""
+for f in /boot/firmware/hostname.txt /boot/firmware/hostname \
+         /boot/firmware/ratt/hostname.txt /boot/firmware/ratt/hostname \
+         /boot/hostname.txt /boot/hostname; do
+    if [ -f "$f" ]; then
+        NEW_HOST="$(tr -d ' \r\t\n' < "$f")"
+        break
+    fi
+done
+
+if [ -z "$NEW_HOST" ]; then
+    for ini in /boot/firmware/ratt/ratt.ini /boot/ratt/ratt.ini /data/ratt/ratt.ini; do
+        if [ -f "$ini" ]; then
+            h="$(grep -E '^[[:space:]]*HostName[[:space:]]*=' "$ini" 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r\t\n' || true)"
+            if [ -n "$h" ]; then
+                NEW_HOST="$h"
+                break
+            fi
+        fi
+    done
+fi
+
+[ -n "$NEW_HOST" ] || exit 0
+
+NEW_HOST="$(echo "$NEW_HOST" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
+[ -n "$NEW_HOST" ] || exit 0
+
+CURRENT_HOST="$(tr -d ' \r\t\n' < /etc/hostname 2>/dev/null || true)"
+
+if [ "$NEW_HOST" != "$CURRENT_HOST" ]; then
+    echo "ratt-hostname: updating hostname from '$CURRENT_HOST' to '$NEW_HOST'..."
+    IS_RO=0
+    if ! [ -w / ]; then
+        mount -o remount,rw /
+        IS_RO=1
+    fi
+
+    echo "$NEW_HOST" > /etc/hostname
+
+    if [ -f /etc/hosts ]; then
+        if [ -n "$CURRENT_HOST" ] && grep -q "\b${CURRENT_HOST}\b" /etc/hosts; then
+            sed -i "s/\b${CURRENT_HOST}\b/${NEW_HOST}/g" /etc/hosts
+        elif grep -q "^127\.0\.1\.1" /etc/hosts; then
+            sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t${NEW_HOST}/" /etc/hosts
+        else
+            echo -e "127.0.1.1\t${NEW_HOST}" >> /etc/hosts
+        fi
+    fi
+
+    hostname "$NEW_HOST" 2>/dev/null || true
+
+    if [ "$IS_RO" -eq 1 ]; then
+        sync
+        mount -o remount,ro /
+    fi
+    echo "ratt-hostname: successfully applied hostname '$NEW_HOST'"
+fi
+exit 0
+EOF
+    chmod 0755 /usr/local/sbin/ratt-hostname.sh
+    chown root:root /usr/local/sbin/ratt-hostname.sh
+
+    cat > /etc/systemd/system/ratt-hostname.service <<'EOF'
+[Unit]
+Description=RATT Apply Hostname from Boot Partition
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=network-pre.target sys-subsystem-net-devices.target systemd-hostnamed.service avahi-daemon.service ssh.service ratt.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ratt-hostname.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable ratt-hostname.service 2>/dev/null || true
+    info "  -> Installed and enabled ratt-hostname.service"
 fi
 
 # ---------------------------------------------------------------- 5. ratt-rw / ratt-ro helpers
@@ -458,7 +564,8 @@ echo "========================================================"
 echo " Local Platform Setup complete!"
 echo " "
 echo " Summary:"
-echo "   - /data directory hierarchy initialized (/data/ratt, /data/certs, /data/log)"
+echo "   - /data initialized for disposable state (/data/ratt caches, /data/log)"
+echo "   - Static config dir /boot/firmware/ratt (ratt.ini, certs/), root-only FAT perms"
 echo "   - Native Read-Only Root configured in /etc/fstab"
 echo "   - systemd-journald configured to persist bounded logs to /data/log"
 echo "   - /data auto-recovery health check service installed"

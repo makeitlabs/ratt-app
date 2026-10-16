@@ -14,7 +14,8 @@
 #     first boot (so clones never come up without sshd).
 #   - Empties /etc/machine-id (systemd regenerates it on boot).
 #   - Clears DHCP/NM leases, apt .deb cache, /tmp, /var/tmp, journal, shell history.
-#   - /data: KEEPS ratt.ini, CLEARS the downloaded ACL + remote-config caches.
+#   - /boot/firmware/ratt: KEEPS ratt.ini, WARNS if certs/ is non-empty (per-node).
+#   - /data: CLEARS the downloaded ACL + remote-config caches (all disposable).
 #   - --reset-cloud-init: wipes /var/lib/cloud so cloud-init re-runs on every clone
 #     (re-applies Imager user-data: user, Wi-Fi, hostname). Off by default.
 #   - Image file: truncates it to the end of the last partition.
@@ -43,8 +44,9 @@ cleanup() {
     set +e
     if [ -n "$MNT" ]; then
         umount "$MNT/data" 2>/dev/null
+        umount "$MNT/boot" 2>/dev/null
         umount "$MNT/root" 2>/dev/null
-        rmdir "$MNT/data" "$MNT/root" "$MNT" 2>/dev/null
+        rmdir "$MNT/data" "$MNT/boot" "$MNT/root" "$MNT" 2>/dev/null
     fi
     [ -n "$LOOP" ] && losetup -d "$LOOP" 2>/dev/null
 }
@@ -63,10 +65,10 @@ else
 fi
 
 part() { if [[ "$DEV" =~ [0-9]$ ]]; then echo "${DEV}p$1"; else echo "${DEV}$1"; fi; }
-P2=$(part 2); P3=$(part 3)
+P1=$(part 1); P2=$(part 2); P3=$(part 3)
 
 MNT=$(mktemp -d /tmp/ratt-sanitize.XXXXXX)
-mkdir -p "$MNT/root" "$MNT/data"
+mkdir -p "$MNT/root" "$MNT/data" "$MNT/boot"
 mount "$P2" "$MNT/root"
 R="$MNT/root"
 [ -f "$R/etc/os-release" ] || die "$P2 doesn't look like a root filesystem"
@@ -112,16 +114,31 @@ if [ "$RESET_CLOUD_INIT" -eq 1 ]; then
     rm -f  "$R"/var/log/cloud-init*.log
 fi
 
-# ---------------------------------------------------------------- /data
+# ---------------------------------------------------------------- static config (boot partition)
+if [ -b "$P1" ] && mount "$P1" "$MNT/boot"; then
+    B="$MNT/boot/ratt"
+    info "/boot/firmware/ratt: keeping ratt.ini"
+    [ -f "$B/ratt.ini" ] || warn "/boot/firmware/ratt/ratt.ini missing; ratt.service won't start on clones"
+    if [ -d "$B/certs" ] && [ -n "$(ls -A "$B/certs" 2>/dev/null)" ]; then
+        warn "/boot/firmware/ratt/certs is not empty. Client certs/keys are usually per-node; every clone will share them:"
+        ls -l "$B/certs" | sed 's/^/    /'
+    fi
+    # Remove node-specific hostname file from template image if present
+    rm -f "$MNT/boot/hostname.txt" "$MNT/boot/hostname" "$MNT/boot/ratt/hostname.txt" "$MNT/boot/ratt/hostname"
+    umount "$MNT/boot"
+else
+    warn "could not mount boot partition ($P1) to check RATT config"
+fi
+
+# ---------------------------------------------------------------- /data (disposable)
 if [ -b "$P3" ] && [ "$(blkid -s LABEL -o value "$P3" 2>/dev/null)" = "data" ]; then
     mount "$P3" "$MNT/data"
     D="$MNT/data"
-    info "/data: keeping ratt.ini, clearing downloaded caches"
-    [ -f "$D/ratt/ratt.ini" ] || warn "/data/ratt/ratt.ini missing; ratt.service won't start on clones"
+    info "/data: clearing downloaded caches"
     rm -f "$D/ratt/ratt.acl" "$D/ratt/ratt-remote.conf"
-    if [ -d "$D/certs" ] && [ -n "$(ls -A "$D/certs" 2>/dev/null)" ]; then
-        warn "/data/certs is not empty. Client certs/keys are usually per-node; every clone will share them:"
-        ls -l "$D/certs" | sed 's/^/    /'
+    if [ -f "$D/ratt/ratt.ini" ] || [ -n "$(ls -A "$D/certs" 2>/dev/null)" ]; then
+        warn "/data still has a legacy ratt.ini and/or certs/. Config now lives in /boot/firmware/ratt;"
+        warn "run setup.sh on the node to migrate, then remove /data/ratt/ratt.ini and /data/certs."
     fi
     umount "$MNT/data"
 else

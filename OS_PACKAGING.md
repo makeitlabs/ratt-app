@@ -11,13 +11,13 @@ to things the **app needs to install** ([`setup.sh`](setup.sh)).
 | Layer | What | Script | Runs |
 |---|---|---|---|
 | **Platform** | Fixed root + 1 GB `/data` partition, fstab, `cmdline.txt`, LCD boot splash, user `ratt` + passwordless sudo, optional `authorized_keys`, no console on LCD | [`scripts/platform-setup.sh`](scripts/platform-setup.sh)<br>*(or [`scripts/pi-platform-setup.sh`](scripts/pi-platform-setup.sh))* | On a Linux **host** against unmounted card/image,<br>or **directly on the live Pi** |
-| **App** | apt packages, `ratt.dtbo`, `config.txt` dtoverlays, `ratt.service`, `/data/ratt/ratt.ini`, ALSA dmix, user groups, freeing the RFID serial port | [`setup.sh`](setup.sh) | On the Pi |
+| **App** | apt packages, `ratt.dtbo`, `config.txt` dtoverlays, `ratt.service`, `/boot/firmware/ratt/ratt.ini` (+ one-time migration from `/data`), ALSA dmix, user groups, freeing the RFID serial port | [`setup.sh`](setup.sh) | On the Pi |
 | **Capture** | Wipe host keys, machine-id, leases, caches, history; trim image | [`scripts/sanitize-image.sh`](scripts/sanitize-image.sh) | On the host, against the unmounted card/image, right before capture |
 
 Rule of thumb: if RATT can't start without it, it goes in `setup.sh`. If it's about how
 the box boots, partitions, or gets cloned, it goes in the platform or capture layer.
 `setup.sh` alone still works on a dev box with no `/data` partition (it warns, and
-the data goes on the root filesystem).
+the caches go on the root filesystem).
 
 ## 2. Building a golden image
 
@@ -31,7 +31,7 @@ sudo scripts/platform-setup.sh /dev/sdX --ssh-key ~/.ssh/id_ed25519.pub
 ssh ratt@<pi-ip>
 #    confirm `findmnt /data` shows the data partition, then:
 git clone ... ratt-app && cd ratt-app && sudo ./setup.sh
-#    configure /data/ratt/ratt.ini as needed, test, then shut down cleanly
+#    configure /boot/firmware/ratt/ratt.ini as needed, test, then shut down cleanly
 
 # 3. Host: card back in the reader:
 sudo scripts/sanitize-image.sh /dev/sdX          # wipes keys/caches; prints exact dd command
@@ -78,10 +78,30 @@ sha256sum ratt-golden.img.xz > ratt-golden.img.xz.sha256
 | p2 | ext4 | `ROOT_SIZE` (default 6 GB) | `/` |
 | p3 | ext4, `LABEL=data` | `DATA_SIZE` (default 1 GB) | `/data` (`defaults,noatime,nofail`) |
 
-- **Everything RATT persists lives on `/data`:** `ratt.ini` (`--ini` default),
-  `ratt.acl` (ACL cache), `ratt-remote.conf` (remote config cache), and `/data/certs/*`.
-  Defaults are in `RattConfig.py` / `RattAppEngine.py`.
-- `ratt.service` has `RequiresMountsFor=/data` and `ConditionPathExists=/data/ratt/ratt.ini`.
+- **Static vs disposable storage.** Anything that must never change or be lost is
+  read-only. Only state that can be rebuilt goes on the writable `/data`:
+
+  | What | Where | Mount | If lost |
+  |---|---|---|---|
+  | `ratt.ini` (`--ini` default) | `/boot/firmware/ratt/ratt.ini` | p1 FAT, **ro** | node unconfigured |
+  | TLS CA/client cert + key | `/boot/firmware/ratt/certs/*` | p1 FAT, **ro** | can't reach MQTT/auth |
+  | ACL cache, remote config cache | `/data/ratt/ratt.acl`, `ratt-remote.conf` | p3 ext4, rw | re-downloaded from auth server |
+  | Logs, journal | `/data/log` (bind on `/var/log`) | p3 ext4, rw | gone (fine) |
+  | Clock file | `/data/fake-hwclock.data` | p3 ext4, rw | NTP resets it |
+
+  Defaults are in `RattConfig.py` / `RattAppEngine.py`. Because config lives on the FAT
+  boot partition, a cloned card can be provisioned by putting it in **any PC (Windows
+  included)** and dropping `ratt/ratt.ini` + `ratt/certs/*` onto the boot drive.
+- **Permissions on FAT.** FAT has no per-file owners or modes; one `fmask`/`dmask` applies
+  to the whole mount. The platform scripts add `fmask=0077,dmask=0077` to the
+  `/boot/firmware` fstab entry, so only root can read it (and the client key in it).
+  `ratt.service` runs as root. Firmware and kernel updates also run as root, so they're
+  unaffected. Anyone with physical access to the card can still read the key. That's
+  true of ext4 too.
+- **Editing from Windows.** CRLF line endings are fine. `RattConfig` reads the ini as
+  `utf-8-sig`, so a Notepad BOM is harmless too.
+- `ratt.service` has `RequiresMountsFor=/data /boot/firmware` and
+  `ConditionPathExists=/boot/firmware/ratt/ratt.ini`.
 - **Root expansion is blocked by layout, not by flags.** p3 sits directly after p2, so
   whatever does first-boot expansion on Trixie (legacy `init_resize.sh`, initramfs hooks,
   or cloud-init `growpart`) has no free space to grow root into. `platform-setup.sh`
@@ -91,8 +111,7 @@ sha256sum ratt-golden.img.xz > ratt-golden.img.xz.sha256
   RATT needs.
 - **Why not grow root and carve `/data` on first boot** (the original proposal, Appendix A.2):
   it resizes the mounted root unattended on every card. It's not idempotent if it fails
-  halfway. And mounting a fresh empty p3 over `/data` would **hide the `ratt.ini` that
-  `setup.sh` wrote**, so `ratt.service` would silently never start.
+  halfway, and it would make provisioning order-dependent.
 
 ### 3.2 Boot splash: udev raw splash on the LCD, no Plymouth
 Deployments are Lite (no desktop, no Plymouth), and Plymouth draws on KMS/HDMI, not the
@@ -126,9 +145,10 @@ This moved out of `setup.sh`.
 - `/etc/machine-id` is emptied (not deleted); systemd regenerates it. The
   `/var/lib/dbus/machine-id` symlink is left alone.
 - Leases, apt `.deb` cache, `/tmp`, `/var/tmp`, the journal, and shell history are cleared.
-- On `/data`, `ratt.ini` is **kept**, and the downloaded `ratt.acl` / `ratt-remote.conf`
-  are cleared. The script **warns if `/data/certs` isn't empty** (client certs/keys are
-  usually per-node).
+- In `/boot/firmware/ratt`, `ratt.ini` is **kept**. The script **warns if `certs/` isn't
+  empty** (client certs/keys are usually per-node).
+- On `/data`, the downloaded `ratt.acl` / `ratt-remote.conf` are cleared. It warns if a
+  legacy `/data/ratt/ratt.ini` or `/data/certs` is still around.
 - `--reset-cloud-init` (off by default) wipes `/var/lib/cloud`, so cloud-init re-applies
   Imager user-data (user, Wi-Fi, hostname) on every clone.
 
@@ -174,7 +194,8 @@ Instead of `raspi-config`'s RAM-heavy OverlayFS (which requires two reboots to m
   * Capped at 50 MB max in `/etc/systemd/journald.conf.d/00-ratt.conf` (`SystemMaxUse=50M`), so logs never exhaust `/data`.
 * **Self-Healing `/data` Auto-Recovery:**
   * `ratt-data-check.service` runs before `local-fs.target`.
-  * If the `/data` partition ever suffers severe corruption, it automatically reformats it with `mkfs.ext4`, re-creates directories (`/data/ratt`, `/data/certs`, `/data/log`), and copies `ratt.ini-example`. The node **always boots** without hanging at an emergency console.
+  * If the `/data` partition ever suffers severe corruption, it automatically reformats it with `mkfs.ext4` and re-creates empty directories (`/data/ratt`, `/data/log`, `/data/timesync`). The node **always boots** without hanging at an emergency console. This is safe because `/data` only holds disposable state. `ratt.ini` and certs are on the read-only boot partition, and the ACL cache is re-downloaded on the next sync.
+  * Caveat: until that first sync, the node has **no offline ACL**. If the auth server is unreachable right after a reformat, nobody can badge in.
 * **Clock persistence:** `fake-hwclock` writes to `/data/fake-hwclock.data` instead of the read-only root.
 * **Maintenance & In-Place Updates (Zero Reboots):**
   Tracked in [`scripts/`](scripts/):
@@ -182,21 +203,27 @@ Instead of `raspi-config`'s RAM-heavy OverlayFS (which requires two reboots to m
   * `sudo scripts/ratt-ro` (or `sudo ratt-ro`): locks the filesystem back down to **read-only**.
   * `sudo scripts/ratt-rw <cmd>`: executes `<cmd>` in read-write mode and automatically re-locks upon exit (e.g. `sudo scripts/ratt-rw git pull`).
   * [`setup.sh`](setup.sh) automatically detects when root is read-only, remounts read-write during installation, and re-locks read-only when done.
+* **Automatic Hostname Provisioning from Boot Partition:**
+  * `ratt-hostname.service` runs early in boot (before network interfaces, avahi, and ssh start).
+  * If `/boot/firmware/hostname.txt` (or `/boot/firmware/hostname`, or `HostName=` in `ratt.ini`) contains a hostname different from `/etc/hostname`, it temporarily unlocks root, updates `/etc/hostname` and `/etc/hosts`, invokes `hostname`, and re-locks root read-only.
+  * To name or rename any node, pop the card into any PC (Windows, Mac, or Linux) and create/edit `hostname.txt` on the FAT boot drive!
 
 ---
 
 ## 4. Still open
-- **Unique hostnames.** Every clone boots with the template's hostname (the script warns).
-  Options: Imager settings per card, cloud-init user-data with `--reset-cloud-init`, or a
-  first-boot rename (e.g. from the MAC address).
-- **Per-node certs** in `/data/certs`: provision after flashing, not in the image.
+- **Per-node certs** in `/boot/firmware/ratt/certs`: provision after flashing (from any PC), not in the image.
 
 ## 5. Gotchas
 - `platform-setup.sh` refuses a card that has **already been booted**, because root has
   usually auto-expanded to fill it. Reflash and run it before the first boot.
-- If `/data` isn't mounted when `setup.sh` runs, `ratt.ini` lands on the root filesystem.
-  When the partition later mounts over `/data`, the file is hidden and the service won't
-  start. `setup.sh` warns about this.
+- If `/data` isn't mounted when `setup.sh` runs, the `/data/ratt` cache dir lands on the root
+  filesystem and gets hidden when the partition mounts later. That's harmless now, since
+  the caches are rebuilt. `setup.sh` still warns about it.
+- **Upgrading an existing node:** re-run `scripts/pi-platform-setup.sh` (adds the FAT
+  masks and replaces the old `ratt-data-check`, which restored a *template* `ratt.ini`
+  after a reformat). Then re-run `setup.sh`. It copies `/data/ratt/ratt.ini` and
+  `/data/certs/*` to `/boot/firmware/ratt/` once, rewriting `/data/certs/` paths in the ini.
+  Delete the old copies after verifying.
 - The hand-installed splash files on ratt-test3 (`/etc/splash.raw`, `show-splash.sh`,
   `99-st7789-splash.rules`) predate this script. Re-running `platform-setup.sh` on a
   fresh card replaces that setup.

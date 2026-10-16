@@ -254,13 +254,15 @@ class NetWorker(QObject):
         self.password = password
 
     def setSSLClientCertConfig(self, enabled = False, caCertFile = '', clientCertFile = '', clientKeyFile = ''):
-        self.sslEnabled = enabled
+        self.sslClientCertsEnabled = enabled
+        self.caCertFile = caCertFile or ''
+        self.clientCertFile = clientCertFile or ''
+        self.clientKeyFile = clientKeyFile or ''
+
+        # SSL config is active if client certs are enabled OR a custom CA cert is configured
+        self.sslEnabled = self.sslClientCertsEnabled or bool(self.caCertFile)
 
         if self.sslSupported and self.sslEnabled:
-            self.caCertFile = caCertFile
-            self.clientCertFile = clientCertFile
-            self.clientKeyFile = clientKeyFile
-
             self.configureCerts()
 
     def get(self, url):
@@ -329,31 +331,49 @@ class NetWorker(QObject):
             authenticator.setPassword(self.password)
 
     def configureCerts(self):
-        ## import the private client key
-        privateKeyFile = QFile(self.clientKeyFile)
-        privateKeyFile.open(QIODevice.ReadOnly)
-        privateKey = QSslKey(privateKeyFile, QSsl.Rsa)
+        # Start with default configuration so system root CAs are preserved
+        self.sslConfig = QSslConfiguration.defaultConfiguration()
 
-        if privateKey.isNull():
-            self.logger.warning('SSL private key is null')
-        else:
-            self.sslConfig.setPrivateKey(privateKey)
+        # Only import client certificate and private key if client certs are explicitly enabled
+        if self.sslClientCertsEnabled and self.clientKeyFile and self.clientCertFile:
+            privateKeyFile = QFile(self.clientKeyFile)
+            if privateKeyFile.open(QIODevice.ReadOnly):
+                privateKey = QSslKey(privateKeyFile, QSsl.Rsa)
+                privateKeyFile.close()
+                if privateKey.isNull():
+                    self.logger.warning('SSL client private key is null: %s' % self.clientKeyFile)
+                else:
+                    self.sslConfig.setPrivateKey(privateKey)
 
-        ## import the client certificate
-        certFile = QFile(self.clientCertFile)
-        certFile.open(QIODevice.ReadOnly)
-        cert = QSslCertificate(certFile)
-        self.sslConfig.setLocalCertificate(cert)
+            certFile = QFile(self.clientCertFile)
+            if certFile.open(QIODevice.ReadOnly):
+                cert = QSslCertificate(certFile)
+                certFile.close()
+                if cert.isNull():
+                    self.logger.warning('SSL client certificate is null: %s' % self.clientCertFile)
+                else:
+                    self.sslConfig.setLocalCertificate(cert)
 
-        ## import the self-signed CA certificate
-        caCertFile = QFile(self.caCertFile)
-        caCertFile.open(QIODevice.ReadOnly)
-        caCert = QSslCertificate(caCertFile)
+        # Import custom CA certificate(s) if provided
+        if self.caCertFile:
+            caCerts = QSslCertificate.fromPath(self.caCertFile)
+            if not caCerts:
+                caFile = QFile(self.caCertFile)
+                if caFile.open(QIODevice.ReadOnly):
+                    singleCert = QSslCertificate(caFile)
+                    caFile.close()
+                    if not singleCert.isNull():
+                        caCerts = [singleCert]
 
-        ## add self-signed CA cert to the other CA certs
-        caCertList = self.sslConfig.caCertificates()
-        caCertList.append(caCert)
-        self.sslConfig.setCaCertificates(caCertList)
+            if caCerts:
+                caCertList = self.sslConfig.caCertificates()
+                for c in caCerts:
+                    if not c.isNull():
+                        caCertList.append(c)
+                self.sslConfig.setCaCertificates(caCertList)
+                self.logger.info('Loaded custom CA certificate(s) from %s' % self.caCertFile)
+            else:
+                self.logger.warning('Could not load CA certificate from %s' % self.caCertFile)
 
     def slotWifiStatus(self, essid, ap, freq, quality, level, rxrate, txrate):
         self.logger.debug("WIFI STATUS %s %s %s quality=%d%% level=%ddBm rxrate=%s txrate=%s" % (essid, ap, freq, quality, level, rxrate, txrate))

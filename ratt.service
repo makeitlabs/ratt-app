@@ -1,14 +1,14 @@
 [Unit]
 Description=RATT Access Control Application
-RequiresMountsFor=/data /tmp
-ConditionPathExists=/data/ratt/ratt.ini
+RequiresMountsFor=/data /tmp /boot/firmware
+ConditionPathExists=/boot/firmware/ratt/ratt.ini
 After=network.target local-fs.target data.mount tmp.mount
 
 [Service]
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
 Environment=QT_QUICK_BACKEND=software
 WorkingDirectory=/home/bkg/ratt-app
-ExecStart=/usr/bin/python3 /home/bkg/ratt-app/ratt.py --ini /data/ratt/ratt.ini
+ExecStart=/usr/bin/python3 /home/bkg/ratt-app/ratt.py --ini /boot/firmware/ratt/ratt.ini
 RestartSec=5
 Restart=on-failure
 

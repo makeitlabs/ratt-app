@@ -190,7 +190,7 @@ NodeName=fake-node
 
 ; (Interpolation value) UrlBase=<path with trailing slash>
 ; The path where the Auth Backend can be found on the server
-UrlBase=auth/
+UrlBase=authit/
 
 ; AclUrl=<url>
 ; Full URL where the ACL file is downloaded
@@ -221,17 +221,17 @@ ConfigUrl=https://%(ServerHost)s:%(ServerPort)s/%(UrlBase)sapi/v1/node/%(NodeNam
 ; Use SSL when connecting to MQTT broker
 ; SSLEnabled=True
 
-; CACertFile=<file> - default=/data/certs/ca.crt
+; CACertFile=<file> - default=/boot/firmware/ratt/certs/ca.crt
 ; SSL CA certificate file path, usually self-signed and specific to MQTT
-; CACertFile=/data/certs/mqtt_ca.crt
+; CACertFile=/boot/firmware/ratt/certs/mqtt_ca.crt
 
-; ClientCertFile=<file> - default=/data/certs/client.crt
+; ClientCertFile=<file> - default=/boot/firmware/ratt/certs/client.crt
 ; SSL Client certificate file path, usually self-signed and specific to MQTT
-; ClientCertFile=/data/certs/mqtt_client.crt
+; ClientCertFile=/boot/firmware/ratt/certs/mqtt_client.crt
 
-; ClientKeyFile=<file> - default=/data/certs/client.key
+; ClientKeyFile=<file> - default=/boot/firmware/ratt/certs/client.key
 ; SSL Client private key file path, usually self-signed and specific to MQTT
-; ClientKeyFile=/data/certs/mqtt_client.key
+; ClientKeyFile=/boot/firmware/ratt/certs/mqtt_client.key
 
 ; BrokerHost=<hostname>
 ; Host name of the MQTT broker
@@ -256,17 +256,17 @@ BrokerHost=mqtt
 ; Enable SSL client certificates for HTTPS transactions
 ; ClientCertsEnabled=True
 
-; CaCertFile=<file> - default=/data/certs/ca.crt
+; CaCertFile=<file> - default=/boot/firmware/ratt/certs/ca.crt
 ; CA certificate file path
-; CaCertFile=/data/certs/https_ca.crt
+; CaCertFile=/boot/firmware/ratt/certs/https_ca.crt
 
-; ClientCertFile=<file> - default=/data/certs/client.crt
+; ClientCertFile=<file> - default=/boot/firmware/ratt/certs/client.crt
 ; Client certificate file path
-; ClientCertFile=/data/certs/https_client.crt
+; ClientCertFile=/boot/firmware/ratt/certs/https_client.crt
 
-; ClientKeyFile=<file> - default=/data/certs/client.key
+; ClientKeyFile=<file> - default=/boot/firmware/ratt/certs/client.key
 ; Client private key file path
-; ClientKeyFile=/data/certs/https_client.key
+; ClientKeyFile=/boot/firmware/ratt/certs/https_client.key
 
 ;;;;;;;;;;;;
 [RFID]

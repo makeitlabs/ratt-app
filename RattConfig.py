@@ -434,7 +434,9 @@ class RattConfig(QObject):
     def loadBootstrapConfig(self):
         self.parser = configparser.ConfigParser()
 
-        self.parser.read(self._inifile)
+        # utf-8-sig: tolerate a BOM if ratt.ini was edited with Windows Notepad
+        # (it lives on the FAT boot partition). CRLF line endings are fine as-is.
+        self.parser.read(self._inifile, encoding='utf-8-sig')
 
         self.config = { }
 
@@ -500,9 +502,9 @@ class RattConfig(QObject):
         self.addSection('MQTT')
         self.addConfig('MQTT', 'LogLevel', 'INFO')
         self.addConfig('MQTT', 'SSLEnabled', False)
-        self.addConfig('MQTT', 'CACertFile', '/data/certs/ca.crt')
-        self.addConfig('MQTT', 'ClientCertFile', '/data/certs/client.crt')
-        self.addConfig('MQTT', 'ClientKeyFile', '/data/certs/client.key')
+        self.addConfig('MQTT', 'CACertFile', '/boot/firmware/ratt/certs/ca.crt')
+        self.addConfig('MQTT', 'ClientCertFile', '/boot/firmware/ratt/certs/client.crt')
+        self.addConfig('MQTT', 'ClientKeyFile', '/boot/firmware/ratt/certs/client.key')
         self.addConfig('MQTT', 'BrokerHost')
         self.addConfigInt('MQTT', 'BrokerPort', 1883)
         self.addConfigInt('MQTT', 'ReconnectTime', 2000)
@@ -510,9 +512,9 @@ class RattConfig(QObject):
 
         self.addSection('HTTPS')
         self.addConfigBool('HTTPS', 'ClientCertsEnabled', False)
-        self.addConfig('HTTPS', 'CaCertFile', '/data/certs/ca.crt')
-        self.addConfig('HTTPS', 'ClientCertFile', '/data/certs/client.crt')
-        self.addConfig('HTTPS', 'ClientKeyFile', '/data/certs/client.key')
+        self.addConfig('HTTPS', 'CaCertFile', '/boot/firmware/ratt/certs/ca.crt')
+        self.addConfig('HTTPS', 'ClientCertFile', '/boot/firmware/ratt/certs/client.crt')
+        self.addConfig('HTTPS', 'ClientKeyFile', '/boot/firmware/ratt/certs/client.key')
 
         self.addSection('RFID')
         self.addConfig('RFID', 'LogLevel', 'INFO')

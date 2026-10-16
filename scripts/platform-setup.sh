@@ -17,8 +17,11 @@
 #   2. Configures NATIVE READ-ONLY ROOT: mounts / and /boot/firmware as 'ro' in fstab,
 #      mounts /tmp and /var/tmp as tmpfs, bind-mounts /data/log over /var/log, and
 #      configures systemd-journald to persist capped logs (50MB) to /data/log.
+#      /boot/firmware also gets fmask=0077,dmask=0077 (root-only) because it holds
+#      the static RATT config + TLS key in /boot/firmware/ratt.
 #   3. Installs a self-healing health check service for /data: if the data partition
-#      is corrupted, it auto-reformats and re-initializes on boot rather than halting.
+#      is corrupted, it auto-reformats on boot rather than halting. Safe because /data
+#      only holds disposable state (ACL/remote-config caches, logs, clock file).
 #   4. Installs ratt-rw and ratt-ro convenience utilities for zero-reboot maintenance.
 #   5. Redirects fake-hwclock to /data/fake-hwclock.data so clock saves cleanly.
 #   6. cmdline.txt: keeps it one line, strips legacy resize tokens, adds
@@ -204,8 +207,10 @@ BOOT="$MNT/boot"
 DATA="$MNT/data"
 [ -f "$BOOT/cmdline.txt" ] || die "no cmdline.txt on $P1 (not a Raspberry Pi OS boot partition?)"
 
-# Initialize /data directory skeleton on p3
-mkdir -p "$DATA/ratt" "$DATA/certs" "$DATA/log"
+# Initialize /data directory skeleton on p3 (disposable state only)
+mkdir -p "$DATA/ratt" "$DATA/log"
+# Static per-node config lives read-only on the FAT boot partition
+mkdir -p "$BOOT/ratt/certs"
 
 # ---------------------------------------------------------------- 2. read-only fstab & runtime mounts
 info "Configuring native read-only root & runtime mounts in /etc/fstab"
@@ -243,6 +248,9 @@ for line in lines:
             if 'ro' not in opts: opts.append('ro')
             if 'rw' in opts: opts.remove('rw')
             if 'nofail' not in opts: opts.append('nofail')
+            # Holds RATT TLS key: root-only (FAT has no per-file permissions)
+            if not any(o.startswith(('fmask=', 'umask=')) for o in opts): opts.append('fmask=0077')
+            if not any(o.startswith(('dmask=', 'umask=')) for o in opts): opts.append('dmask=0077')
             parts[3] = ','.join(opts)
             line = f"{parts[0]:<20}  {parts[1]:<15}  {parts[2]:<6}  {parts[3]:<24}  {parts[4]}  {parts[5]}\n"
         elif mp == '/data':
@@ -292,6 +300,10 @@ rm -f "$ROOT/var/swap"
 info "Installing /data partition auto-recovery service"
 cat > "$ROOT/usr/local/sbin/ratt-data-check.sh" <<'EOF'
 #!/bin/bash
+# ratt-data-check v2
+# /data holds ONLY disposable state: ACL + remote-config caches (re-downloaded
+# from the auth server), logs, and the fake-hwclock file. Static config
+# (ratt.ini, TLS certs) is on /boot/firmware/ratt, so reformatting is safe.
 DATA_DEV="$(readlink -f /dev/disk/by-label/data 2>/dev/null || true)"
 if [ -z "$DATA_DEV" ] || [ ! -b "$DATA_DEV" ]; then
     exit 0
@@ -308,19 +320,11 @@ rc=$?
 set -e
 
 if [ "$rc" -ge 4 ] && [ "$rc" -ne 8 ]; then
-    echo "WARNING: /data partition ($DATA_DEV) corrupted (e2fsck code $rc); auto-reformatting..."
+    echo "WARNING: /data partition ($DATA_DEV) corrupted (e2fsck code $rc); reformatting (caches/logs only)..."
     mkfs.ext4 -F -q -L data "$DATA_DEV"
     TMPMNT=$(mktemp -d)
     mount "$DATA_DEV" "$TMPMNT"
-    mkdir -p "$TMPMNT/ratt" "$TMPMNT/certs" "$TMPMNT/log" "$TMPMNT/timesync"
-    chown -R 1000:1000 "$TMPMNT/ratt" "$TMPMNT/certs" 2>/dev/null || true
-    for ini in /home/*/ratt-app/conf/ratt.ini-example; do
-        if [ -f "$ini" ]; then
-            cp "$ini" "$TMPMNT/ratt/ratt.ini"
-            chown 1000:1000 "$TMPMNT/ratt/ratt.ini" 2>/dev/null || true
-            break
-        fi
-    done
+    mkdir -p "$TMPMNT/ratt" "$TMPMNT/log" "$TMPMNT/timesync"
     umount "$TMPMNT"
     rmdir "$TMPMNT"
 fi
@@ -347,6 +351,94 @@ WantedBy=local-fs.target
 EOF
 mkdir -p "$ROOT/etc/systemd/system/local-fs.target.wants"
 ln -sf ../ratt-data-check.service "$ROOT/etc/systemd/system/local-fs.target.wants/ratt-data-check.service"
+
+# Install ratt-hostname service: applies hostname from /boot/firmware/hostname.txt if present
+info "Installing ratt-hostname service (auto-configures hostname from /boot/firmware)"
+cat > "$ROOT/usr/local/sbin/ratt-hostname.sh" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+NEW_HOST=""
+for f in /boot/firmware/hostname.txt /boot/firmware/hostname \
+         /boot/firmware/ratt/hostname.txt /boot/firmware/ratt/hostname \
+         /boot/hostname.txt /boot/hostname; do
+    if [ -f "$f" ]; then
+        NEW_HOST="$(tr -d ' \r\t\n' < "$f")"
+        break
+    fi
+done
+
+if [ -z "$NEW_HOST" ]; then
+    for ini in /boot/firmware/ratt/ratt.ini /boot/ratt/ratt.ini /data/ratt/ratt.ini; do
+        if [ -f "$ini" ]; then
+            h="$(grep -E '^[[:space:]]*HostName[[:space:]]*=' "$ini" 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' \r\t\n' || true)"
+            if [ -n "$h" ]; then
+                NEW_HOST="$h"
+                break
+            fi
+        fi
+    done
+fi
+
+[ -n "$NEW_HOST" ] || exit 0
+
+NEW_HOST="$(echo "$NEW_HOST" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
+[ -n "$NEW_HOST" ] || exit 0
+
+CURRENT_HOST="$(tr -d ' \r\t\n' < /etc/hostname 2>/dev/null || true)"
+
+if [ "$NEW_HOST" != "$CURRENT_HOST" ]; then
+    echo "ratt-hostname: updating hostname from '$CURRENT_HOST' to '$NEW_HOST'..."
+    IS_RO=0
+    if ! [ -w / ]; then
+        mount -o remount,rw /
+        IS_RO=1
+    fi
+
+    echo "$NEW_HOST" > /etc/hostname
+
+    if [ -f /etc/hosts ]; then
+        if [ -n "$CURRENT_HOST" ] && grep -q "\b${CURRENT_HOST}\b" /etc/hosts; then
+            sed -i "s/\b${CURRENT_HOST}\b/${NEW_HOST}/g" /etc/hosts
+        elif grep -q "^127\.0\.1\.1" /etc/hosts; then
+            sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t${NEW_HOST}/" /etc/hosts
+        else
+            echo -e "127.0.1.1\t${NEW_HOST}" >> /etc/hosts
+        fi
+    fi
+
+    hostname "$NEW_HOST" 2>/dev/null || true
+
+    if [ "$IS_RO" -eq 1 ]; then
+        sync
+        mount -o remount,ro /
+    fi
+    echo "ratt-hostname: successfully applied hostname '$NEW_HOST'"
+fi
+exit 0
+EOF
+chmod 0755 "$ROOT/usr/local/sbin/ratt-hostname.sh"
+chown root:root "$ROOT/usr/local/sbin/ratt-hostname.sh"
+
+cat > "$ROOT/etc/systemd/system/ratt-hostname.service" <<'EOF'
+[Unit]
+Description=RATT Apply Hostname from Boot Partition
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=network-pre.target sys-subsystem-net-devices.target systemd-hostnamed.service avahi-daemon.service ssh.service ratt.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ratt-hostname.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+mkdir -p "$ROOT/etc/systemd/system/sysinit.target.wants"
+ln -sf ../ratt-hostname.service "$ROOT/etc/systemd/system/sysinit.target.wants/ratt-hostname.service"
 
 # Install convenience wrappers in /usr/local/bin delegating to scripts/ratt-rw and scripts/ratt-ro
 info "Installing ratt-rw / ratt-ro convenience utilities"
