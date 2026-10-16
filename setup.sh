@@ -100,7 +100,9 @@ if [ -f "$CONFIG_TXT" ]; then
     append_if_missing "dtparam=i2c_arm=on"
     append_if_missing "dtoverlay=ratt"
     append_if_missing "dtparam=spi=on"
-    append_if_missing "dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=270"
+    # Update older rotate=270 config to rotate=90 if already present
+    sed -i -E 's/(dtoverlay=fbtft,st7789v.*rotate=)270/\190/' "$CONFIG_TXT"
+    append_if_missing "dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=90"
     append_if_missing "dtparam=i2s=on"
     append_if_missing "dtoverlay=hifiberry-dac"
     # NOTE: dtoverlay=i2s-mmap is deprecated/removed on modern kernels (built into bcm2835-i2s)
@@ -127,10 +129,21 @@ fi
 # see OS_PACKAGING.md.
 
 # 5. Free the RFID serial port and boot to console
-echo "[5/7] Disabling serial-getty (RFID uses ttyAMA0)..."
-systemctl stop serial-getty@ttyAMA0.service 2>/dev/null || true
-systemctl disable serial-getty@ttyAMA0.service 2>/dev/null || true
-systemctl mask serial-getty@ttyAMA0.service 2>/dev/null || true
+# On boards with Bluetooth (e.g. Pi Zero 2 W) serial0 -> ttyS0 (mini UART);
+# on others it may be ttyAMA0. Free all of them so nothing competes with RATT.
+echo "[5/7] Disabling serial console/getty on RFID UART (serial0/ttyS0/ttyAMA0)..."
+for tty in ttyS0 ttyAMA0 serial0; do
+    systemctl stop "serial-getty@${tty}.service" 2>/dev/null || true
+    systemctl disable "serial-getty@${tty}.service" 2>/dev/null || true
+    systemctl mask "serial-getty@${tty}.service" 2>/dev/null || true
+done
+# Remove the kernel serial console from cmdline.txt (it also writes to / reconfigures the UART)
+CMDLINE_TXT="/boot/firmware/cmdline.txt"
+[ -f "$CMDLINE_TXT" ] || CMDLINE_TXT="/boot/cmdline.txt"
+if [ -f "$CMDLINE_TXT" ]; then
+    sed -i -E 's/[[:space:]]*console=(serial0|ttyS0|ttyAMA0)(,[0-9]+)?//g' "$CMDLINE_TXT"
+    echo "  -> Removed serial console from $CMDLINE_TXT (takes effect after reboot)"
+fi
 # NOTE: masking getty@tty1 (console on the LCD) is done by scripts/platform-setup.sh.
 
 systemctl set-default multi-user.target 2>/dev/null || true
@@ -221,7 +234,7 @@ echo "  1. Installed required Qt5, QML, gpiod, paho-mqtt, and ALSA packages."
 echo "  2. Compiled and installed device tree overlay (ratt.dtbo)."
 echo "  3. Configured /boot/firmware/config.txt for GPIO, SPI, ST7789 display & I2S Audio."
 echo "  4. Configured video kernel drivers & blacklists."
-echo "  5. Disabled serial-getty@ttyAMA0 to free RFID serial port."
+echo "  5. Disabled serial getty + kernel console on serial0/ttyS0/ttyAMA0 to free RFID serial port."
 echo "  6. Installed ALSA dmix software mixer configuration (/etc/asound.conf)."
 echo "  7. Initialized /data/ratt/ratt.ini and registered systemd service (ratt.service)."
 echo ""

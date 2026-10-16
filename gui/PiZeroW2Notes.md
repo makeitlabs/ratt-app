@@ -58,7 +58,7 @@ echo "blacklist fbtft" | sudo tee -a /etc/modprobe.d/blacklist-st7789.conf
 Add following to `/boot/firmware/config.txt`
 ```
 dtparam=spi=on
-dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=270
+dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=90
 ```
 
 `modprobe fb_st7789v` to manually load video driver
@@ -139,7 +139,7 @@ echo "blacklist fbtft" | sudo tee -a /etc/modprobe.d/blacklist-st7789.conf
 Add following to `/boot/firmware/config.txt`
 ```
 dtparam=spi=on
-dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=270
+dtoverlay=fbtft,st7789v,speed=32000000,dc_pin=24,reset_pin=23,cs_pin=8,rotate=90
 ```
 
 `modprobe fb_st7789v` to manually load video driver

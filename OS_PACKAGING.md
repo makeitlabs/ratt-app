@@ -105,7 +105,7 @@ fbtft LCD anyway. The Plymouth step was removed from `setup.sh`.
   It's the same detection `ratt.py` uses.
 - `splash.raw` is `gui/images/ratt_bootscreen.png` scaled to 320×240, RGB565 little-endian,
   exactly **153600** bytes (the script asserts this). It uses ffmpeg if the host has it,
-  else PyQt5. fbtft applies `rotate=270` itself, so the fb is already 320×240.
+  else PyQt5. fbtft applies `rotate=90` itself, so the fb is already 320×240.
 - The splash stays up until RATT draws. On stop, RATT leaves `ratt_exitscreen.png` up.
 
 ### 3.3 `cmdline.txt`
