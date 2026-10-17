@@ -30,11 +30,15 @@ Must match a python file `Personality<Class>.py` in the `personalities/` directo
 
 #### Common Personality Options
 - `Class`: The personality class to use from the list above.
+- `ToolActivePin`: GPIO pin used for sensing tool activity (default `IN0`).
+- `ActivityHoldoffSeconds`: Holdoff / dropout delay in seconds for pulsed, discontinuous, or AC current sensors before declaring the tool inactive (default `0.0`, disabled). When set (e.g. `5.0`), the system remains in the active state until no activity has been seen for this full duration, preventing state flutter on pulsed loads.
 - `MonitorToolPowerEnabled`: Enable/Disable sensing if the tool's main power is ON.
 - `MonitorEstopEnabled`: Enable/Disable continuous E-Stop monitoring.
 - `SafetyCheckEnabled`: Enable Safety Checklist procedure before taking action.
 - `PassiveSafetyCheckEnabled`: Ensures machine switches are OFF before granting power.
-- `TimeoutSeconds`: Timeout before warning/logging out an inactive user.
+- `TimeoutSeconds`: Timeout in seconds before warning/logging out an inactive user (default `300`).
+- `AdminTimeoutSeconds`: Timeout for admin users with access level > 0 (default `600`).
+- `TimeoutWarningSeconds`: Seconds remaining before timeout when an audible warning plays (default `30`).
 - `PasswordEnabled`: Require secondary password string before activation.
 - `Password`: The password string to authenticate against.
 - And various other Personality-specific timers, pins, and strings.

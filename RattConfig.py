@@ -473,6 +473,7 @@ class RattConfig(QObject):
         self.addConfigBool('Personality', 'MonitorToolPowerEnabled', False)
         self.addConfigBool('Personality', 'PassiveSafetyCheckEnabled', False)
         self.addConfig('Personality', 'ToolActivePin', 'IN0')
+        self.addConfigFloat('Personality', 'ActivityHoldoffSeconds', 0.0)
         self.addConfig('Personality', 'ToolPowerPin', 'IN1')
         self.addConfig('Personality', 'PassiveSafetyCheckPin', 'IN2')
         self.addConfig('Personality', 'EstopPin', 'IN3')

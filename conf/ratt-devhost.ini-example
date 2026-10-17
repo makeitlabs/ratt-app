@@ -75,6 +75,10 @@ AdminTimeoutSeconds=60
 ; Audibly warn about impending timeout with this many seconds remaining
 TimeoutWarningSeconds=15
 
+; ActivityHoldoffSeconds=<seconds> - default=0
+; Holdoff / dropout delay for pulsed or AC current sensors before declaring the tool inactive (0=disabled)
+; ActivityHoldoffSeconds=5.0
+
 ; MonitorEstopEnabled=[True|False] - default=False
 ; Wait for E-Stop loop to go active after activating tool (for tools that require manual start/reset button)
 ; MonitorEstopEnabled=True

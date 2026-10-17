@@ -40,6 +40,7 @@ from PyQt5.QtCore import pyqtSlot, pyqtSignal, pyqtProperty, QVariant
 from QtGPIO import LOW, HIGH
 from PersonalityBase import PersonalityBase
 import json
+import time
 
 class Personality(PersonalityBase):
     #############################################
@@ -147,6 +148,8 @@ class Personality(PersonalityBase):
 
         # configurable GPIO pin assignments (resolved via PersonalityBase.nameToPinObject)
         self._toolActivePinName = self.app.config.value('Personality.ToolActivePin')
+        self._activityHoldoffSecs = float(self.app.config.value('Personality.ActivityHoldoffSeconds') or 0.0)
+        self._lastToolActiveTime = 0.0
         self._toolPowerPinName = self.app.config.value('Personality.ToolPowerPin')
         self._passiveCheckPinName = self.app.config.value('Personality.PassiveSafetyCheckPin')
         self._estopPinName = self.app.config.value('Personality.EstopPin')
@@ -564,12 +567,17 @@ class Personality(PersonalityBase):
         if self.phENTER:
             self.telemetryEvent.emit('personality/activity', json.dumps({'active': True, 'member': self.activeMemberRecord.name}))
             self.toolActiveFlag = True
+            self._lastToolActiveTime = time.monotonic()
             self.wakeOnTimer(enabled=True, interval=250, singleShot=False)
             return self.goActive()
 
         elif self.phACTIVE:
+            if self.toolActive():
+                self._lastToolActiveTime = time.monotonic()
+
             if not self.toolActive():
-                return self.exitAndGoto(self.STATE_TOOL_ENABLED_INACTIVE)
+                if self._activityHoldoffSecs <= 0 or (time.monotonic() - self._lastToolActiveTime) >= self._activityHoldoffSecs:
+                    return self.exitAndGoto(self.STATE_TOOL_ENABLED_INACTIVE)
 
             if self.wakereason == self.REASON_TIMER:
                 if self.pin_led1.get() == LOW:
@@ -589,6 +597,7 @@ class Personality(PersonalityBase):
             return False
 
         elif self.phEXIT:
+            self.wakeOnTimer(enabled=False)
             self.pin_led1.set(LOW)
             return self.goNextState()
 
@@ -600,6 +609,7 @@ class Personality(PersonalityBase):
             self.telemetryEvent.emit('personality/activity', json.dumps({'active': False, 'member': self.activeMemberRecord.name}))
             self.toolActiveFlag = False
             self.pin_led1.set(HIGH)
+            self.wakeOnTimer(enabled=True, interval=250, singleShot=False)
             return self.goActive()
 
         elif self.phACTIVE:
@@ -618,6 +628,7 @@ class Personality(PersonalityBase):
             return False
 
         elif self.phEXIT:
+            self.wakeOnTimer(enabled=False)
             self.pin_led1.set(LOW)
             return self.goNextState()
 
