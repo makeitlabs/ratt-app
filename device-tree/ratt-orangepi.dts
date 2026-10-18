@@ -80,18 +80,18 @@
         };
     };
 
-    /* Audio Hub & PCM5102A Sound Card ("sndrpihifiberry") */
+    /* Audio Hub Sound Card ("sndrpihifiberry") on I2S0 */
     fragment@3 {
         target-path = "/soc";
         __overlay__ {
             ahub0_plat: ahub0_plat {
                 compatible = "allwinner,sunxi-snd-plat-ahub";
                 #sound-dai-cells = <0>;
-                apb_num = <1>;
-                tdm_num = <1>;
+                apb_num = <0>;
+                tdm_num = <0>;
                 tx_pin = <0>;
                 rx_pin = <0>;
-                dmas = <&dma 4>, <&dma 4>;
+                dmas = <&dma 3>, <&dma 3>;
                 dma-names = "tx", "rx";
                 playback_cma = <128>;
                 capture_cma = <128>;
@@ -115,18 +115,11 @@
                 ahub0_cpu: soundcard-mach,cpu {
                     sound-dai = <&ahub0_plat>;
                     soundcard-mach,pll-fs = <4>;
-                    soundcard-mach,mclk-fs = <0>;
+                    soundcard-mach,mclk-fs = <0x100>;
                 };
 
                 ahub0_codec: soundcard-mach,codec {
-                    sound-dai = <&pcm5102a>;
                 };
-            };
-
-            pcm5102a: pcm5102a {
-                compatible = "ti,pcm5102a";
-                #sound-dai-cells = <0>;
-                status = "okay";
             };
         };
     };
