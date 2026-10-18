@@ -3,19 +3,31 @@
 # RATT golden-image sanitization + capture
 #
 # Runs on a Linux HOST against the UNMOUNTED card/image of a fully set-up RATT
-# node (platform-setup.sh + setup.sh done, Pi shut down cleanly), right before
-# it is captured as a reusable template. NEVER run this against a live system.
+# node (Raspberry Pi or Orange Pi), right before it is captured as a reusable template.
+# NEVER run this against a live system.
 #
 #   sudo scripts/sanitize-image.sh /dev/sdX [--reset-cloud-init]
 #   sudo scripts/sanitize-image.sh golden.img [--reset-cloud-init]
+#
+# Partition layouts automatically detected:
+#   - Raspberry Pi (3 partitions):
+#       p1: FAT32 (/boot/firmware)
+#       p2: ext4 (/)
+#       p3: ext4 (/data, logs/caches)
+#   - Orange Pi (2 partitions):
+#       p1: ext4 (rootfs, includes /boot)
+#       p2: ext4 (/data, logs/caches)
+#       (No separate FAT boot partition)
 #
 # What it does:
 #   - Wipes SSH host keys, and installs a oneshot unit that regenerates them on
 #     first boot (so clones never come up without sshd).
 #   - Empties /etc/machine-id (systemd regenerates it on boot).
-#   - Clears DHCP/NM leases, apt .deb cache, /tmp, /var/tmp, journal, shell history.
-#   - /boot/firmware/ratt: KEEPS ratt.ini, WARNS if certs/ is non-empty (per-node).
-#   - /data: CLEARS the downloaded ACL + remote-config caches (all disposable).
+#   - Clears DHCP/NM leases, apt .deb cache, /tmp, /var/tmp, journals, shell history.
+#   - Boot static config (p1 FAT on RPi, or /boot on Orange Pi):
+#     KEEPS ratt.ini, WARNS if certs/ is non-empty (per-node), clears template hostname.
+#   - /data (p3 on RPi, p2 on Orange Pi):
+#     CLEARS downloaded ACL + remote-config caches, persistent journals, and logs.
 #   - --reset-cloud-init: wipes /var/lib/cloud so cloud-init re-runs on every clone
 #     (re-applies Imager user-data: user, Wi-Fi, hostname). Off by default.
 #   - Image file: truncates it to the end of the last partition.
@@ -67,11 +79,63 @@ fi
 part() { if [[ "$DEV" =~ [0-9]$ ]]; then echo "${DEV}p$1"; else echo "${DEV}$1"; fi; }
 P1=$(part 1); P2=$(part 2); P3=$(part 3)
 
+[ -b "$P1" ] || die "$DEV has no partition 1"
+
+P1_TYPE="$(blkid -s TYPE -o value "$P1" 2>/dev/null || true)"
+
+if [[ "$P1_TYPE" =~ fat|msdos|FAT ]]; then
+    # Raspberry Pi layout:
+    #   p1: FAT boot (/boot/firmware)
+    #   p2: ext4 root (/)
+    #   p3: ext4 data (/data)
+    info "Detected Raspberry Pi layout (p1: ${P1_TYPE} boot, p2: root, p3: data)"
+    ROOT_PART="$P2"
+    BOOT_PART="$P1"
+    DATA_PART="$P3"
+    HAS_SEPARATE_BOOT=1
+else
+    # Orange Pi (and single-root distributions) layout:
+    #   p1: ext4 root (/), includes /boot
+    #   p2: ext4 data/log (/data)
+    #   no separate FAT boot partition
+    info "Detected Orange Pi layout (p1: ${P1_TYPE:-ext4} root, p2: data/log - no separate FAT boot)"
+    ROOT_PART="$P1"
+    BOOT_PART=""
+    DATA_PART="$P2"
+    HAS_SEPARATE_BOOT=0
+fi
+
 MNT=$(mktemp -d /tmp/ratt-sanitize.XXXXXX)
 mkdir -p "$MNT/root" "$MNT/data" "$MNT/boot"
-mount "$P2" "$MNT/root"
+
+mount "$ROOT_PART" "$MNT/root"
 R="$MNT/root"
-[ -f "$R/etc/os-release" ] || die "$P2 doesn't look like a root filesystem"
+
+# Verify rootfs
+if [ ! -f "$R/etc/os-release" ]; then
+    # Fallback sanity check in case P1/P2 were inverted
+    umount "$MNT/root" 2>/dev/null || true
+    ALT_PART="$P2"
+    [ "$ROOT_PART" = "$P2" ] && ALT_PART="$P1"
+    if [ -b "$ALT_PART" ]; then
+        info "Retrying rootfs detection on $ALT_PART..."
+        if mount "$ALT_PART" "$MNT/root" 2>/dev/null; then
+            if [ -f "$R/etc/os-release" ]; then
+                ROOT_PART="$ALT_PART"
+                if [ "$ROOT_PART" = "$P2" ]; then
+                    BOOT_PART="$P1"
+                    DATA_PART="$P3"
+                    HAS_SEPARATE_BOOT=1
+                else
+                    BOOT_PART=""
+                    DATA_PART="$P2"
+                    HAS_SEPARATE_BOOT=0
+                fi
+            fi
+        fi
+    fi
+fi
+[ -f "$R/etc/os-release" ] || die "$ROOT_PART doesn't look like a root filesystem (no /etc/os-release)"
 
 # ---------------------------------------------------------------- SSH host keys
 info "SSH host keys"
@@ -106,6 +170,7 @@ rm -rf "$R"/var/lib/dhcp/* "$R"/var/lib/NetworkManager/*.lease
 rm -f  "$R"/var/cache/apt/archives/*.deb
 rm -rf "$R"/tmp/* "$R"/var/tmp/*
 rm -rf "$R"/var/log/journal/*
+find "$R/var/log" -maxdepth 2 -type f ! -name "README*" -delete 2>/dev/null || true
 rm -f  "$R"/root/.bash_history "$R"/home/*/.bash_history
 
 if [ "$RESET_CLOUD_INIT" -eq 1 ]; then
@@ -114,35 +179,68 @@ if [ "$RESET_CLOUD_INIT" -eq 1 ]; then
     rm -f  "$R"/var/log/cloud-init*.log
 fi
 
-# ---------------------------------------------------------------- static config (boot partition)
-if [ -b "$P1" ] && mount "$P1" "$MNT/boot"; then
-    B="$MNT/boot/ratt"
-    info "/boot/firmware/ratt: keeping ratt.ini"
-    [ -f "$B/ratt.ini" ] || warn "/boot/firmware/ratt/ratt.ini missing; ratt.service won't start on clones"
+# ---------------------------------------------------------------- static config (boot)
+BOOT_DIR=""
+MOUNTED_BOOT=0
+if [ "$HAS_SEPARATE_BOOT" -eq 1 ]; then
+    if [ -b "$BOOT_PART" ] && mount "$BOOT_PART" "$MNT/boot"; then
+        BOOT_DIR="$MNT/boot"
+        MOUNTED_BOOT=1
+    else
+        warn "could not mount boot partition ($BOOT_PART) to check RATT config"
+    fi
+else
+    # On Orange Pi, /boot is part of the root filesystem
+    BOOT_DIR="$R/boot"
+fi
+
+if [ -n "$BOOT_DIR" ] && [ -d "$BOOT_DIR" ]; then
+    B="$BOOT_DIR/ratt"
+    [ -d "$B" ] || [ ! -d "$BOOT_DIR/firmware/ratt" ] || B="$BOOT_DIR/firmware/ratt"
+
+    info "Boot config directory: $BOOT_DIR (RATT config in $B)"
+    if [ -f "$B/ratt.ini" ]; then
+        info "$B/ratt.ini: keeping static configuration"
+    else
+        warn "$B/ratt.ini missing; ratt.service won't start on clones until configured"
+    fi
+
     if [ -d "$B/certs" ] && [ -n "$(ls -A "$B/certs" 2>/dev/null)" ]; then
-        warn "/boot/firmware/ratt/certs is not empty. Client certs/keys are usually per-node; every clone will share them:"
+        warn "$B/certs is not empty. Client certs/keys are usually per-node; every clone will share them:"
         ls -l "$B/certs" | sed 's/^/    /'
     fi
+
     # Remove node-specific hostname file from template image if present
-    rm -f "$MNT/boot/hostname.txt" "$MNT/boot/hostname" "$MNT/boot/ratt/hostname.txt" "$MNT/boot/ratt/hostname"
-    umount "$MNT/boot"
-else
-    warn "could not mount boot partition ($P1) to check RATT config"
+    rm -f "$BOOT_DIR/hostname.txt" "$BOOT_DIR/hostname" "$B/hostname.txt" "$B/hostname"
+
+    if [ "$MOUNTED_BOOT" -eq 1 ]; then
+        umount "$MNT/boot"
+    fi
 fi
 
 # ---------------------------------------------------------------- /data (disposable)
-if [ -b "$P3" ] && [ "$(blkid -s LABEL -o value "$P3" 2>/dev/null)" = "data" ]; then
-    mount "$P3" "$MNT/data"
-    D="$MNT/data"
-    info "/data: clearing downloaded caches"
-    rm -f "$D/ratt/ratt.acl" "$D/ratt/ratt-remote.conf"
-    if [ -f "$D/ratt/ratt.ini" ] || [ -n "$(ls -A "$D/certs" 2>/dev/null)" ]; then
-        warn "/data still has a legacy ratt.ini and/or certs/. Config now lives in /boot/firmware/ratt;"
-        warn "run setup.sh on the node to migrate, then remove /data/ratt/ratt.ini and /data/certs."
+if [ -n "$DATA_PART" ] && [ -b "$DATA_PART" ]; then
+    if mount "$DATA_PART" "$MNT/data" 2>/dev/null; then
+        D="$MNT/data"
+        info "Data partition ($DATA_PART mounted at /data): clearing disposable caches and logs"
+        rm -f "$D/ratt/ratt.acl" "$D/ratt/ratt-remote.conf"
+        if [ -f "$D/ratt/ratt.ini" ] || [ -n "$(ls -A "$D/certs" 2>/dev/null)" ]; then
+            warn "$DATA_PART still has a legacy ratt.ini and/or certs/."
+            warn "Config lives in boot/ratt; run setup.sh to migrate, then remove $D/ratt/ratt.ini and $D/certs."
+        fi
+        if [ -d "$D/log" ]; then
+            info "Clearing persistent logs and journal in $DATA_PART (/data/log)"
+            rm -rf "$D"/log/journal/*
+            rm -rf "$D"/log/apt/*
+            find "$D/log" -maxdepth 2 -type f ! -name "README*" -delete 2>/dev/null || true
+        fi
+        rm -f "$D/fake-hwclock.data"
+        umount "$MNT/data"
+    else
+        warn "could not mount data partition ($DATA_PART)"
     fi
-    umount "$MNT/data"
 else
-    warn "no LABEL=data partition (p3); was platform-setup.sh run?"
+    warn "no data partition ($DATA_PART) found; was platform setup run?"
 fi
 
 # ---------------------------------------------------------------- reminders

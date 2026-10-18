@@ -138,17 +138,23 @@ This moved out of `setup.sh`.
 `serial-getty@ttyAMA0`, because RFID uses that UART.
 
 ### 3.5 Capture / sanitization (`sanitize-image.sh`)
+The script automatically detects the board architecture and partition layout:
+- **Raspberry Pi (3 partitions):** `p1` FAT32 boot (`/boot/firmware`), `p2` ext4 root (`/`), `p3` ext4 data (`/data`).
+- **Orange Pi (2 partitions):** `p1` ext4 root (`/`, contains `/boot`), `p2` ext4 data (`/data`, logs/caches). No separate FAT boot partition.
+
+Actions performed:
 - **SSH host keys** are wiped (that's why every re-flash gave "REMOTE HOST IDENTIFICATION
   HAS CHANGED"). The script also installs `ratt-ssh-hostkeys.service`
   (`ssh-keygen -A` when keys are missing), so clones never come up without sshd, regardless
   of whether `raspberrypi-sys-mods`' regenerator is present.
 - `/etc/machine-id` is emptied (not deleted); systemd regenerates it. The
   `/var/lib/dbus/machine-id` symlink is left alone.
-- Leases, apt `.deb` cache, `/tmp`, `/var/tmp`, the journal, and shell history are cleared.
-- In `/boot/firmware/ratt`, `ratt.ini` is **kept**. The script **warns if `certs/` isn't
-  empty** (client certs/keys are usually per-node).
-- On `/data`, the downloaded `ratt.acl` / `ratt-remote.conf` are cleared. It warns if a
-  legacy `/data/ratt/ratt.ini` or `/data/certs` is still around.
+- Leases, apt `.deb` cache, `/tmp`, `/var/tmp`, journals, and shell history are cleared.
+- In `/boot/firmware/ratt` (or `/boot/ratt` on Orange Pi), `ratt.ini` is **kept**. The script
+  **warns if `certs/` isn't empty** (client certs/keys are usually per-node). Any temporary `hostname.txt` is removed.
+- On `/data` (`p3` on RPi, `p2` on Orange Pi), downloaded `ratt.acl` / `ratt-remote.conf`,
+  persistent journal directories, and `/data/log` files are cleared. It warns if a legacy
+  `/data/ratt/ratt.ini` or `/data/certs` is still around.
 - `--reset-cloud-init` (off by default) wipes `/var/lib/cloud`, so cloud-init re-applies
   Imager user-data (user, Wi-Fi, hostname) on every clone.
 
