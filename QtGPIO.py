@@ -426,11 +426,14 @@ if HAVE_GPIOD:
                     with open(path + '/ngpio', 'r') as f:
                         ngpio = int(f.read().strip())
                     if base <= number < base + ngpio:
-                        # Extract "gpiochipX" or use its numbered index directly
-                        # But gpiod sometimes handles 'gpiochipX' by name smoothly
-                        chip_name = path.split('/')[-1]
-                        if chip_name.startswith('gpiochip'):
-                            chip_name = chip_name.replace('gpiochip', '')
+                        # Extract the real /dev/gpiochipX name via the device symlink if present
+                        dev_chips = glob.glob(path + '/device/gpiochip*')
+                        if dev_chips:
+                            chip_name = os.path.basename(dev_chips[0])
+                        else:
+                            chip_name = path.split('/')[-1]
+                            if chip_name.startswith('gpiochip'):
+                                chip_name = chip_name.replace('gpiochip', '')
                         offset = number - base
                         sysfs_mapped = True
                         break
@@ -475,10 +478,13 @@ if HAVE_GPIOD:
                 self._chip = gpiod.Chip(chip_name)
             except:
                 try:
-                    self._chip = gpiod.Chip("gpiochip0")
+                    self._chip = gpiod.Chip(f"/dev/{chip_name}")
                 except:
-                    self._chip = gpiod.Chip("/dev/gpiochip0")
-                offset = number
+                    try:
+                        self._chip = gpiod.Chip("gpiochip0")
+                    except:
+                        self._chip = gpiod.Chip("/dev/gpiochip0")
+                    offset = number
             
             self._offset = offset
 
@@ -505,10 +511,24 @@ if HAVE_GPIOD:
                     active_low=bool(active_low)
                 )
                 
-                self._req = self._chip.request_lines(
-                    consumer="ratt-gpio",
-                    config={offset: settings}
-                )
+                try:
+                    self._req = self._chip.request_lines(
+                        consumer="ratt-gpio",
+                        config={offset: settings}
+                    )
+                except OSError as e:
+                    if edge_val != Edge.NONE and getattr(e, 'errno', None) in (19, 22):
+                        settings = gpiod.LineSettings(
+                            direction=direction_val,
+                            edge_detection=Edge.NONE,
+                            active_low=bool(active_low)
+                        )
+                        self._req = self._chip.request_lines(
+                            consumer="ratt-gpio",
+                            config={offset: settings}
+                        )
+                    else:
+                        raise
             else:
                 self._line = self._chip.get_line(offset)
     
@@ -523,7 +543,13 @@ if HAVE_GPIOD:
                     elif edge == FALLING:
                         req_type = gpiod.LINE_REQ_EV_FALLING_EDGE
     
-                self._line.request(consumer="ratt-gpio", type=req_type, flags=flags)
+                try:
+                    self._line.request(consumer="ratt-gpio", type=req_type, flags=flags)
+                except OSError as e:
+                    if req_type not in (gpiod.LINE_REQ_DIR_OUT, gpiod.LINE_REQ_DIR_IN) and getattr(e, 'errno', None) in (19, 22):
+                        self._line.request(consumer="ratt-gpio", type=gpiod.LINE_REQ_DIR_IN, flags=flags)
+                    else:
+                        raise
 
         @property
         def callback(self): return self._callback
@@ -552,9 +578,12 @@ if HAVE_GPIOD:
 
         def fileno(self):
             if self._is_v2:
-                return self._req.fd
+                return getattr(self._req, 'fd', -1)
             else:
-                return self._line.event_get_fd()
+                try:
+                    return self._line.event_get_fd()
+                except Exception:
+                    return -1
 
         def changed(self, state):
             if callable(self._callback):
@@ -630,7 +659,12 @@ if HAVE_GPIOD:
                 
                 if direction == INPUT and callback and edge:
                     # the fd from gpiod is epoll EPOLLIN compliant rather than EPOLLPRI file-bounds
-                    self._poll_queue.register(pin, (select.EPOLLIN | select.EPOLLET))
+                    try:
+                        fd = pin.fileno()
+                        if fd >= 0:
+                            self._poll_queue.register(pin, (select.EPOLLIN | select.EPOLLET))
+                    except Exception:
+                        pass
 
                 self._allocated_pins[number] = pin
                 return pin
@@ -644,7 +678,10 @@ if HAVE_GPIOD:
 
             pin = self._allocated_pins[number]
             if pin.direction == INPUT and pin.callback:
-                self._poll_queue.unregister(pin)
+                try:
+                    self._poll_queue.unregister(pin)
+                except Exception:
+                    pass
                 
             pin.release()
             del self._allocated_pins[number]

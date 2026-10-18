@@ -186,7 +186,7 @@ ConditionPathExists=${RATT_CONF_DIR}/ratt.ini
 After=network.target
 
 [Service]
-Environment=QT_QPA_PLATFORM=linuxfb
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
 Environment=QT_QUICK_BACKEND=software
 WorkingDirectory=${SCRIPT_DIR}
 ExecStart=/usr/bin/python3 ${SCRIPT_DIR}/ratt.py --ini ${RATT_CONF_DIR}/ratt.ini

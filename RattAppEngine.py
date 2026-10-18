@@ -47,6 +47,7 @@ from MqttClient import MqttClient
 from RFID import RFID
 from Logger import Logger
 import sys
+import os
 import subprocess
 import argparse
 
@@ -155,7 +156,10 @@ class RattAppEngine(QQmlApplicationEngine):
         personalityClass = 'Personality' + self.config.value('Personality.Class')
 
         try:
-            sys.path.append('personalities')
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            personalities_dir = os.path.join(base_dir, 'personalities')
+            if personalities_dir not in sys.path:
+                sys.path.append(personalities_dir)
             module = __import__(personalityClass)
 
             self.personality = module.Personality(loglevel=self.config.value('Personality.LogLevel'), app=self)
