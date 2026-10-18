@@ -34,6 +34,15 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REAL_USER="${SUDO_USER:-$USER}"
 
+# Check for Orange Pi platform and delegate
+if [ -f /etc/orangepi-release ] || grep -qi "OrangePi" /proc/device-tree/model 2>/dev/null; then
+    echo "========================================================"
+    echo " Detected Orange Pi platform ($(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo 'OrangePi'))"
+    echo " Delegating setup to setup-orangepi.sh..."
+    echo "========================================================"
+    exec "${SCRIPT_DIR}/setup-orangepi.sh" "$@"
+fi
+
 echo "========================================================"
 echo " RATT Application Automated Setup"
 echo " Target OS: Raspbian / Debian Trixie (or newer)"

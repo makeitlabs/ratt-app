@@ -44,17 +44,39 @@ from RFID import RFID
 from MemberRecord import MemberRecord
 import copy
 import json
+import os
 
 import QtGPIO as GPIO
 import QtSimGPIO as SimGPIO
+
+def _is_orange_pi():
+    try:
+        with open('/proc/device-tree/model', 'r') as f:
+            return 'orangepi' in f.read().lower()
+    except Exception:
+        pass
+    return os.path.exists('/etc/orangepi-release')
 
 class PersonalityBase(PersonalityStateMachine):
     PERSONALITY_DESCRIPTION = 'Base'
 
     # GPIO pin assignments
-    GPIO_PIN_SHUTDOWN = 27
-    GPIO_PIN_POWER_PRESENT = 26
-    GPIO_PIN_CHARGE_STATE = 12
+    if _is_orange_pi():
+        # Orange Pi Zero 2W (Allwinner H618):
+        # Header Pin 13 (RPi BCM 27): PH3 -> GPIO line 227
+        # Header Pin 37 (RPi BCM 26): PI16 -> GPIO line 272
+        # Header Pin 32 (RPi BCM 12): PI11 -> GPIO line 267
+        GPIO_PIN_SHUTDOWN = 227
+        GPIO_PIN_POWER_PRESENT = 272
+        GPIO_PIN_CHARGE_STATE = 267
+    else:
+        # Raspberry Pi BCM GPIO numbers:
+        # Header Pin 13: BCM 27
+        # Header Pin 37: BCM 26
+        # Header Pin 32: BCM 12
+        GPIO_PIN_SHUTDOWN = 27
+        GPIO_PIN_POWER_PRESENT = 26
+        GPIO_PIN_CHARGE_STATE = 12
     GPIO_PIN_IN0 = 496
     GPIO_PIN_IN1 = 497
     GPIO_PIN_IN2 = 498

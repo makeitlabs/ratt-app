@@ -1,0 +1,133 @@
+/*
+ * MakeIt Labs RATT: RFID All The Things
+ * Device Tree Overlay for Orange Pi Zero 2W (Allwinner H616/H618)
+ * -----------------------------------------------------------------
+ * Resources on 40-pin header:
+ * - PCA9539 16-bit I2C I/O Expander at address 0x74 on I2C1 (PI7, PI8)
+ * - ST7789V 240x320 SPI display on SPI1 (PH5 CS, PH6 CLK, PH7 MOSI, PH8 MISO)
+ *   with DC on PH4 (pin 18) and Reset on PI14 (pin 16)
+ * - PCM5102A HiFiBerry DAC on I2S0 (PI1 BCLK, PI2 LRCK, PI3 DOUT0)
+ *   providing ALSA card "sndrpihifiberry"
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "allwinner,sun50i-h616", "allwinner,sun50i-h618";
+
+    /* I2C1: PCA9539 GPIO Expander */
+    fragment@0 {
+        target = <&i2c1>;
+        __overlay__ {
+            status = "okay";
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&i2c1_pi_pins>;
+
+            pca9539: pca9539@74 {
+                compatible = "nxp,pca9539";
+                reg = <0x74>;
+                gpio-controller;
+                #gpio-cells = <2>;
+                status = "okay";
+            };
+        };
+    };
+
+    /* SPI1: ST7789V LCD Display */
+    fragment@1 {
+        target = <&spi1>;
+        __overlay__ {
+            status = "okay";
+            #address-cells = <1>;
+            #size-cells = <0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&spi1_pins &spi1_cs0_pin>;
+
+            st7789v: st7789v@0 {
+                compatible = "sitronix,st7789v";
+                reg = <0>;
+                status = "okay";
+                spi-max-frequency = <32000000>;
+                rotate = <90>;
+                buswidth = <8>;
+                fps = <30>;
+                dc-gpios = <&pio 7 4 0>;    /* PH4 (Pin 18, Data/Command) */
+                reset-gpios = <&pio 8 14 1>; /* PI14 (Pin 16, Active Low Reset) */
+                debug = <0>;
+            };
+        };
+    };
+
+    /* Port I pins for I2S0 */
+    fragment@2 {
+        target = <&pio>;
+        __overlay__ {
+            ahub_daudio0_pins_a: ahub_daudio0_pins_a {
+                pins = "PI0", "PI1", "PI2";
+                function = "i2s0";
+                drive-strength = <0x14>;
+                bias-disable;
+            };
+            ahub_daudio0_pins_b: ahub_daudio0_pins_b {
+                pins = "PI3";
+                function = "i2s0_dout0";
+                drive-strength = <0x14>;
+                bias-disable;
+            };
+        };
+    };
+
+    /* Audio Hub & PCM5102A Sound Card ("sndrpihifiberry") */
+    fragment@3 {
+        target-path = "/soc";
+        __overlay__ {
+            ahub0_plat: ahub0_plat {
+                compatible = "allwinner,sunxi-snd-plat-ahub";
+                #sound-dai-cells = <0>;
+                apb_num = <1>;
+                tdm_num = <1>;
+                tx_pin = <0>;
+                rx_pin = <0>;
+                dmas = <&dma 4>, <&dma 4>;
+                dma-names = "tx", "rx";
+                playback_cma = <128>;
+                capture_cma = <128>;
+                tx_fifo_size = <128>;
+                rx_fifo_size = <128>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&ahub_daudio0_pins_a>, <&ahub_daudio0_pins_b>;
+                status = "okay";
+            };
+
+            ahub0_mach: ahub0_mach {
+                compatible = "allwinner,sunxi-snd-mach";
+                soundcard-mach,name = "sndrpihifiberry";
+                soundcard-mach,format = "i2s";
+                soundcard-mach,frame-master = <&ahub0_cpu>;
+                soundcard-mach,bitclock-master = <&ahub0_cpu>;
+                soundcard-mach,slot-num = <2>;
+                soundcard-mach,slot-width = <32>;
+                status = "okay";
+
+                ahub0_cpu: soundcard-mach,cpu {
+                    sound-dai = <&ahub0_plat>;
+                    soundcard-mach,pll-fs = <4>;
+                    soundcard-mach,mclk-fs = <0>;
+                };
+
+                ahub0_codec: soundcard-mach,codec {
+                    sound-dai = <&pcm5102a>;
+                };
+            };
+
+            pcm5102a: pcm5102a {
+                compatible = "ti,pcm5102a";
+                #sound-dai-cells = <0>;
+                status = "okay";
+            };
+        };
+    };
+};

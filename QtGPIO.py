@@ -446,9 +446,9 @@ if HAVE_GPIOD:
                     offset = number - 496
                     t_min, t_max = 16, 16 
                 else:
-                    # RPi Core SoC
+                    # Core SoC (RPi has ~54 lines; Orange Pi H616/H618 has ~288 lines)
                     offset = number
-                    t_min, t_max = 50, 60
+                    t_min, t_max = 50, 350
                 
                 found_match = False
                 for p in glob.glob('/dev/gpiochip*'):
