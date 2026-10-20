@@ -361,8 +361,33 @@ if [ -z "$TARGET_FB" ]; then
     fi
 fi
 
+DEV=""
 if [ -n "$TARGET_FB" ] && [ -e "/dev/$TARGET_FB" ]; then
-    cat /etc/splash.raw > "/dev/$TARGET_FB" 2>/dev/null || true
+    DEV="/dev/$TARGET_FB"
+elif [ -n "$TARGET_FB" ] && [ -e "$TARGET_FB" ]; then
+    DEV="$TARGET_FB"
+fi
+
+if [ -n "$DEV" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$DEV" /etc/splash.raw <<'PY'
+import sys, mmap
+try:
+    fb_path, raw_path = sys.argv[1], sys.argv[2]
+    with open(raw_path, 'rb') as rf:
+        raw_data = rf.read()
+    with open(fb_path, 'r+b') as f:
+        mm = mmap.mmap(f.fileno(), len(raw_data), mmap.MAP_SHARED, mmap.PROT_WRITE)
+        mm.seek(0)
+        mm.write(raw_data)
+        mm.flush()
+        mm.close()
+except Exception:
+    pass
+PY
+    else
+        cat /etc/splash.raw > "$DEV" 2>/dev/null || true
+    fi
 fi
 EOF
     chown root:root /usr/local/sbin/show-splash.sh
