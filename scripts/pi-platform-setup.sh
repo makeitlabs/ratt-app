@@ -447,23 +447,30 @@ else
         cp "${REPO_DIR}/gui/images/splash.raw" /etc/splash.raw
         info "  -> Installed /etc/splash.raw from pre-built image"
     elif command -v ffmpeg >/dev/null 2>&1 && [ -f "$SPLASH_SRC" ]; then
-        ffmpeg -loglevel error -y -i "$SPLASH_SRC" -vf "scale=${LCD_W}:${LCD_H}" \
+        ffmpeg -loglevel error -y -i "$SPLASH_SRC" \
+            -filter_complex "color=black:s=${LCD_W}x${LCD_H} [bg]; [0:v] scale=${LCD_W}:${LCD_H} [fg]; [bg][fg] overlay=shortest=1" \
             -f rawvideo -pix_fmt rgb565le /etc/splash.raw
         info "  -> Generated /etc/splash.raw using ffmpeg"
     elif [ -f "$SPLASH_SRC" ]; then
         python3 - "$SPLASH_SRC" /etc/splash.raw "$LCD_W" "$LCD_H" <<'PY'
 import sys
 from PyQt5.QtCore import QCoreApplication, Qt
-from PyQt5.QtGui import QImage
+from PyQt5.QtGui import QImage, QPainter
 app = QCoreApplication(sys.argv)
 src, dst, w, h = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
 img = QImage(src)
 if img.isNull():
     sys.exit("could not load " + src)
-img = img.scaled(w, h, Qt.IgnoreAspectRatio, Qt.SmoothTransformation).convertToFormat(QImage.Format_RGB16)
-ptr = img.constBits(); ptr.setsize(img.byteCount())
+bg = QImage(w, h, QImage.Format_RGB32)
+bg.fill(Qt.black)
+painter = QPainter(bg)
+scaled_img = img.scaled(w, h, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+painter.drawImage(0, 0, scaled_img)
+painter.end()
+bg = bg.convertToFormat(QImage.Format_RGB16)
+ptr = bg.constBits(); ptr.setsize(bg.byteCount())
 data = bytes(ptr)
-bpl = img.bytesPerLine()
+bpl = bg.bytesPerLine()
 with open(dst, "wb") as f:
     for y in range(h):
         f.write(data[y * bpl : y * bpl + w * 2])
@@ -479,15 +486,36 @@ PY
 
         cat > /usr/local/sbin/show-splash.sh <<'EOF'
 #!/bin/sh
-FB="${1:-fb1}"
-NAME=$(cat "/sys/class/graphics/$FB/name" 2>/dev/null | tr 'A-Z' 'a-z')
-case "$NAME" in
-    *st7789*|*fbtft*|*st7735*) ;;
-    *) exit 0 ;;
-esac
-[ -e "/dev/$FB" ] && [ -f /etc/splash.raw ] || exit 0
-sleep 0.1
-cat /etc/splash.raw > "/dev/$FB"
+# Draw /etc/splash.raw on the ST7789 framebuffer.
+[ -f /etc/splash.raw ] || exit 0
+
+TARGET_FB=""
+if [ -n "$1" ] && [ -e "/dev/$1" ]; then
+    TARGET_FB="$1"
+fi
+
+if [ -z "$TARGET_FB" ]; then
+    for fb in fb0 fb1; do
+        if [ -e "/dev/$fb" ]; then
+            NAME=$(cat "/sys/class/graphics/$fb/name" 2>/dev/null | tr 'A-Z' 'a-z')
+            case "$NAME" in
+                *st7789*|*fbtft*|*st7735*|*sitronix*) TARGET_FB="$fb"; break ;;
+            esac
+        fi
+    done
+fi
+
+if [ -z "$TARGET_FB" ]; then
+    if [ -e /dev/fb0 ]; then
+        TARGET_FB="fb0"
+    elif [ -e /dev/fb1 ]; then
+        TARGET_FB="fb1"
+    fi
+fi
+
+if [ -n "$TARGET_FB" ] && [ -e "/dev/$TARGET_FB" ]; then
+    cat /etc/splash.raw > "/dev/$TARGET_FB" 2>/dev/null || true
+fi
 EOF
         chown root:root /usr/local/sbin/show-splash.sh
         chmod 0755 /usr/local/sbin/show-splash.sh
