@@ -40,6 +40,7 @@ from PyQt5.QtCore import QObject, QMutex, QIODevice, pyqtSlot, pyqtSignal, pyqtP
 from PyQt5.QtCore import QFile, QFileInfo
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
 from PyQt5.QtQml import QQmlListProperty, qmlRegisterType
+import os
 import configparser
 from Logger import Logger
 import json
@@ -513,9 +514,9 @@ class RattConfig(QObject):
 
         self.addSection('HTTPS')
         self.addConfigBool('HTTPS', 'ClientCertsEnabled', False)
-        self.addConfig('HTTPS', 'CaCertFile', '/boot/firmware/ratt/certs/ca.crt')
-        self.addConfig('HTTPS', 'ClientCertFile', '/boot/firmware/ratt/certs/client.crt')
-        self.addConfig('HTTPS', 'ClientKeyFile', '/boot/firmware/ratt/certs/client.key')
+        self.addConfig('HTTPS', 'CaCertFile', '')
+        self.addConfig('HTTPS', 'ClientCertFile', '')
+        self.addConfig('HTTPS', 'ClientKeyFile', '')
 
         self.addSection('RFID')
         self.addConfig('RFID', 'LogLevel', 'INFO')

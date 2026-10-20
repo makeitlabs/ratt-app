@@ -43,17 +43,17 @@ ApplicationWindow {
     id: appWindow
     visible: true
     color: "#004488"
-    width: 1024
-    height: 768
+    // Scale specifically for the target TFT display bounds (as sometimes this is mirrored via fbcp within a larger HDMI ApplicationWindow)
+    property real targetTftWidth: (typeof config !== "undefined" && config !== null && config.General_TftWidth > 0) ? config.General_TftWidth : 160
+    property real targetTftHeight: (typeof config !== "undefined" && config !== null && config.General_TftHeight > 0) ? config.General_TftHeight : 128
+
+    width: targetTftWidth
+    height: targetTftHeight
 
     signal uiEvent(string evt)
     signal mqttPublishSubtopicEvent(string subtopic, string msg)
 
     property string idleBusyView: ""
-    
-    // Scale specifically for the target TFT display bounds (as sometimes this is mirrored via fbcp within a larger HDMI ApplicationWindow)
-    property real targetTftWidth: (typeof config !== "undefined" && config.General_TftWidth > 0) ? config.General_TftWidth : 160
-    property real targetTftHeight: (typeof config !== "undefined" && config.General_TftHeight > 0) ? config.General_TftHeight : 128
     
     // Dynamically calculate raw scale, but safely trim 10% (0.9) exclusively on wider screens to preserve visual margins!
     property real rawScale: Math.min(targetTftWidth / 160, targetTftHeight / 128)
@@ -377,11 +377,11 @@ ApplicationWindow {
         anchors.top: root.bottom
         anchors.left: parent.left
         width: parent.width
-        height: parent.height - root.height
+        height: Math.max(0, parent.height - root.height)
         anchors.margins: 4
 
         Component.onCompleted: {
-            if (config.General_Diags) {
+            if (typeof config !== "undefined" && config !== null && config.General_Diags) {
                 diagsLoader.source = "RattDiags.qml"
             }
         }
@@ -390,6 +390,7 @@ ApplicationWindow {
     Label {
       id: mver
       width: 150
+      visible: typeof config !== "undefined" && config !== null && config.General_Diags && parent.height > root.height
       anchors.top: root.bottom
       anchors.left: parent.left
       anchors.margins: 5
@@ -402,6 +403,7 @@ ApplicationWindow {
     Label {
       id: aver
       width: 150
+      visible: typeof config !== "undefined" && config !== null && config.General_Diags && parent.height > root.height
       anchors.top: mver.bottom
       anchors.left: parent.left
       anchors.margins: 5

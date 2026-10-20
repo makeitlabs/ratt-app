@@ -259,7 +259,7 @@ class NetWorker(QObject):
         self.clientCertFile = clientCertFile or ''
         self.clientKeyFile = clientKeyFile or ''
 
-        # SSL config is active if client certs are enabled OR a custom CA cert is configured
+        # SSL config is active if client certs are enabled OR an explicit CA cert is specified in the INI file
         self.sslEnabled = self.sslClientCertsEnabled or bool(self.caCertFile)
 
         if self.sslSupported and self.sslEnabled:
@@ -354,7 +354,7 @@ class NetWorker(QObject):
                 else:
                     self.sslConfig.setLocalCertificate(cert)
 
-        # Import custom CA certificate(s) if provided
+        # Import explicit CA certificate(s) if provided in INI
         if self.caCertFile:
             caCerts = QSslCertificate.fromPath(self.caCertFile)
             if not caCerts:
@@ -366,11 +366,7 @@ class NetWorker(QObject):
                         caCerts = [singleCert]
 
             if caCerts:
-                caCertList = self.sslConfig.caCertificates()
-                for c in caCerts:
-                    if not c.isNull():
-                        caCertList.append(c)
-                self.sslConfig.setCaCertificates(caCertList)
+                self.sslConfig.addCaCertificates(caCerts)
                 self.logger.info('Loaded custom CA certificate(s) from %s' % self.caCertFile)
             else:
                 self.logger.warning('Could not load CA certificate from %s' % self.caCertFile)

@@ -109,14 +109,14 @@ class MqttClient(QThread):
 
         if sslEnabled:
             try:
-                self.logger.info('SSL enabled, ca_cert=' + caCertFile + ' cert=' + clientCertFile + ' key=' + clientKeyFile)
-                self._client.tls_set(ca_certs=caCertFile,
-                                     certfile=clientCertFile,
-                                     keyfile=clientKeyFile)
-            except IOError:
-                self.logger.error('Error loading SSL certificates!  Are the paths and filenames correct in the .ini file?')
-            except:
-                self.logger.error('Unknown error loading SSL certificates.')
+                self.logger.info('SSL enabled, ca_cert=' + str(caCertFile) + ' cert=' + str(clientCertFile) + ' key=' + str(clientKeyFile))
+                self._client.tls_set(ca_certs=caCertFile if caCertFile else None,
+                                     certfile=clientCertFile if clientCertFile else None,
+                                     keyfile=clientKeyFile if clientKeyFile else None)
+            except IOError as e:
+                self.logger.error('Error loading SSL certificates (%s)!  Are the paths and filenames correct in the .ini file?' % str(e))
+            except Exception as e:
+                self.logger.error('Unknown error loading SSL certificates: %s' % str(e))
 
         self.logger.info('MQTT client initialized, broker host is ' + self._hostname + ':' + str(self._port))
         self.connectToBroker()
@@ -178,7 +178,7 @@ class MqttClient(QThread):
     @protocolVersion.setter
     def protocolVersion(self, protocolVersion):
         if self._protocol_version == protocolVersion: return
-        if protocolVersion in (MqttClient.MQTT_3_1, MQTT_3_1_1):
+        if protocolVersion in (MqttClient.MQTT_3_1, MqttClient.MQTT_3_1_1):
             self._protocol_version = protocolVersion
             self.protocolVersionChanged.emit(protocolVersion)
 
