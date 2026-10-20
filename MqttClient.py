@@ -109,11 +109,14 @@ class MqttClient(QThread):
 
         if sslEnabled:
             try:
-                self.logger.info('SSL enabled, ca_cert=' + str(caCertFile) + ' cert=' + str(clientCertFile) + ' key=' + str(clientKeyFile))
-                self._client.tls_set(ca_certs=caCertFile if caCertFile else None,
-                                     certfile=clientCertFile if clientCertFile else None,
-                                     keyfile=clientKeyFile if clientKeyFile else None)
-            except IOError as e:
+                ca_cert = caCertFile if caCertFile else None
+                cert = clientCertFile if clientCertFile else None
+                key = clientKeyFile if clientKeyFile else None
+                self.logger.info('SSL enabled, ca_cert=%s cert=%s key=%s' % (ca_cert, cert, key))
+                self._client.tls_set(ca_certs=ca_cert,
+                                     certfile=cert,
+                                     keyfile=key)
+            except (IOError, OSError) as e:
                 self.logger.error('Error loading SSL certificates (%s)!  Are the paths and filenames correct in the .ini file?' % str(e))
             except Exception as e:
                 self.logger.error('Unknown error loading SSL certificates: %s' % str(e))
