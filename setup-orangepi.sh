@@ -30,7 +30,7 @@ echo " Installation Directory: ${SCRIPT_DIR}"
 echo "========================================================"
 
 # 1. Update APT and Install Dependencies
-echo "[1/7] Installing system dependencies via apt..."
+echo "[1/8] Installing system dependencies via apt..."
 apt-get update -y
 apt-get install -y --no-install-recommends \
     python3 \
@@ -52,7 +52,7 @@ apt-get install -y --no-install-recommends \
     mosquitto
 
 # 2. Build and Install Device Tree Overlay
-echo "[2/7] Building and installing Orange Pi Device Tree Overlay (ratt.dtbo)..."
+echo "[2/8] Building and installing Orange Pi Device Tree Overlay (ratt.dtbo)..."
 DTS_FILE="${SCRIPT_DIR}/device-tree/ratt-orangepi.dts"
 OVERLAY_DIR="/boot/overlay-user"
 mkdir -p "$OVERLAY_DIR"
@@ -75,7 +75,7 @@ for u in "$REAL_USER" "ratt" "bkg"; do
 done
 
 # 3. Configure Orange Pi Boot Environment (/boot/orangepiEnv.txt)
-echo "[3/7] Updating /boot/orangepiEnv.txt..."
+echo "[3/8] Updating /boot/orangepiEnv.txt..."
 ENV_TXT="/boot/orangepiEnv.txt"
 
 if [ -f "$ENV_TXT" ]; then
@@ -99,15 +99,15 @@ if [ -f "$ENV_TXT" ]; then
         set_env_param "user_overlays" "${CURRENT_USER_OVERLAYS} ratt"
     fi
 
-    # Free ttyS0 UART by redirecting console to display
+    # Free ttyS0 UART by redirecting console, and keep fbcon off LCD
     set_env_param "console" "none"
-    set_env_param "extraargs" "console=tty1"
+    set_env_param "extraargs" "console=tty1 fbcon=map:9 vt.global_cursor_default=0"
 else
     echo "  -> WARNING: Could not find /boot/orangepiEnv.txt"
 fi
 
 # 4. Display Driver Module Config (/etc/modprobe.d, /etc/modules)
-echo "[4/7] Configuring display kernel drivers..."
+echo "[4/8] Configuring display kernel drivers..."
 rm -f /etc/modprobe.d/blacklist-st7789.conf
 
 for mod in fbtft fb_st7789v; do
@@ -118,7 +118,7 @@ for mod in fbtft fb_st7789v; do
 done
 
 # 5. Free RFID serial port (ttyS0) and disable serial getty
-echo "[5/7] Disabling serial console/getty on RFID UART (/dev/ttyS0)..."
+echo "[5/8] Disabling serial console/getty on RFID UART (/dev/ttyS0)..."
 for tty in ttyS0 serial0; do
     systemctl stop "serial-getty@${tty}.service" 2>/dev/null || true
     systemctl disable "serial-getty@${tty}.service" 2>/dev/null || true
@@ -128,7 +128,7 @@ done
 systemctl set-default multi-user.target 2>/dev/null || true
 
 # 6. Audio Mixer Configuration (/etc/asound.conf)
-echo "[6/7] Configuring ALSA software mixer (/etc/asound.conf)..."
+echo "[6/8] Configuring ALSA software mixer (/etc/asound.conf)..."
 cat << 'EOF' > /etc/asound.conf
 pcm.!default {
     type plug
@@ -158,7 +158,7 @@ ctl.dmixer {
 EOF
 
 # 7. Application Configuration & Systemd Service
-echo "[7/7] Setting up RATT config, paths, and systemd service..."
+echo "[7/8] Setting up RATT config, paths, and systemd service..."
 
 # Create /boot/firmware symlink to /boot for uniform path compatibility across Pi and Orange Pi
 if [ ! -e /boot/firmware ]; then
@@ -286,6 +286,73 @@ systemctl daemon-reload
 systemctl enable ratt.service 2>/dev/null || true
 systemctl enable ratt-hostname.service 2>/dev/null || true
 
+# 8. LCD Boot Splash Configuration (/etc/splash.raw, udev rule)
+echo "[8/8] Configuring LCD boot splash screen..."
+LCD_W=320
+LCD_H=240
+SPLASH_BYTES=$((LCD_W * LCD_H * 2))
+SPLASH_SRC="${SCRIPT_DIR}/gui/images/ratt_bootscreen.png"
+
+if [ -f "${SCRIPT_DIR}/gui/images/splash.raw" ] && [ "$(stat -c %s "${SCRIPT_DIR}/gui/images/splash.raw" 2>/dev/null)" -eq "$SPLASH_BYTES" ]; then
+    cp "${SCRIPT_DIR}/gui/images/splash.raw" /etc/splash.raw
+    echo "  + Installed /etc/splash.raw from pre-built image"
+elif command -v ffmpeg >/dev/null 2>&1 && [ -f "$SPLASH_SRC" ]; then
+    ffmpeg -loglevel error -y -i "$SPLASH_SRC" -vf "scale=${LCD_W}:${LCD_H}" \
+        -f rawvideo -pix_fmt rgb565le /etc/splash.raw
+    echo "  + Generated /etc/splash.raw using ffmpeg"
+elif [ -f "$SPLASH_SRC" ]; then
+    python3 - "$SPLASH_SRC" /etc/splash.raw "$LCD_W" "$LCD_H" <<'PY'
+import sys
+from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5.QtGui import QImage
+app = QCoreApplication(sys.argv)
+src, dst, w, h = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+img = QImage(src)
+if img.isNull():
+    sys.exit("could not load " + src)
+img = img.scaled(w, h, Qt.IgnoreAspectRatio, Qt.SmoothTransformation).convertToFormat(QImage.Format_RGB16)
+ptr = img.constBits(); ptr.setsize(img.byteCount())
+data = bytes(ptr)
+bpl = img.bytesPerLine()
+with open(dst, "wb") as f:
+    for y in range(h):
+        f.write(data[y * bpl : y * bpl + w * 2])
+PY
+    echo "  + Generated /etc/splash.raw using PyQt5"
+fi
+
+if [ -f /etc/splash.raw ]; then
+    chmod 0644 /etc/splash.raw
+    chown root:root /etc/splash.raw
+
+    cat > /usr/local/sbin/show-splash.sh <<'EOF'
+#!/bin/sh
+# Draw /etc/splash.raw on the ST7789 (fbtft) framebuffer. Called by udev.
+FB="${1:-fb1}"
+NAME=$(cat "/sys/class/graphics/$FB/name" 2>/dev/null | tr 'A-Z' 'a-z')
+case "$NAME" in
+    *st7789*|*fbtft*|*st7735*) ;;
+    *) exit 0 ;;
+esac
+[ -e "/dev/$FB" ] && [ -f /etc/splash.raw ] || exit 0
+sleep 0.1
+cat /etc/splash.raw > "/dev/$FB"
+EOF
+    chown root:root /usr/local/sbin/show-splash.sh
+    chmod 0755 /usr/local/sbin/show-splash.sh
+
+    cat > /etc/udev/rules.d/99-st7789-splash.rules <<'EOF'
+# Draw the RATT boot splash as soon as the fbtft LCD framebuffer registers
+ACTION=="add", SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", RUN+="/usr/local/sbin/show-splash.sh %k"
+EOF
+    chown root:root /etc/udev/rules.d/99-st7789-splash.rules
+    chmod 0644 /etc/udev/rules.d/99-st7789-splash.rules
+    echo "  + Installed /usr/local/sbin/show-splash.sh and udev rule /etc/udev/rules.d/99-st7789-splash.rules"
+
+    # Test/show immediately if framebuffer already active
+    /usr/local/sbin/show-splash.sh fb1 2>/dev/null || /usr/local/sbin/show-splash.sh fb0 2>/dev/null || true
+fi
+
 if [ "$IS_RO" -eq 1 ]; then
     sync
     echo "  -> Remounting root filesystem back to read-only..."
@@ -304,6 +371,7 @@ echo "  4. Configured ST7789 display kernel drivers in /etc/modules."
 echo "  5. Disabled serial console/getty on /dev/ttyS0 for RFID."
 echo "  6. Configured ALSA dmix software mixer (/etc/asound.conf) for sndrpihifiberry."
 echo "  7. Initialized /boot/firmware symlink, ratt.ini, and registered ratt.service."
+echo "  8. Configured LCD boot splash screen (/etc/splash.raw & udev rule)."
 echo ""
 echo " NOTE: A reboot is required to load boot overlays and display/audio drivers!"
 echo "       sudo reboot"
