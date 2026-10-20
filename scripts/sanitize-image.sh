@@ -140,23 +140,72 @@ fi
 # ---------------------------------------------------------------- SSH host keys
 info "SSH host keys"
 rm -f "$R"/etc/ssh/ssh_host_*key*
-# Always install our own regenerator; it's a no-op if keys already exist,
-# so it's harmless alongside raspberrypi-sys-mods' regenerate_ssh_host_keys.
+# Install our own first-boot hostkey generator script that handles read-only root
+cat > "$R/usr/local/sbin/ratt-ssh-hostkeys.sh" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+MISSING=0
+for t in rsa ecdsa ed25519; do
+    if [ ! -f "/etc/ssh/ssh_host_${t}_key" ]; then
+        MISSING=1
+        break
+    fi
+done
+
+[ "$MISSING" -eq 1 ] || exit 0
+
+echo "ratt-ssh-hostkeys: generating missing SSH host keys..."
+IS_RO=0
+if ! [ -w / ]; then
+    mount -o remount,rw /
+    IS_RO=1
+fi
+
+/usr/bin/ssh-keygen -A
+
+if [ "$IS_RO" -eq 1 ]; then
+    sync
+    mount -o remount,ro /
+fi
+echo "ratt-ssh-hostkeys: host keys generated successfully."
+exit 0
+EOF
+chmod 0755 "$R/usr/local/sbin/ratt-ssh-hostkeys.sh"
+chown root:root "$R/usr/local/sbin/ratt-ssh-hostkeys.sh"
+
 cat > "$R/etc/systemd/system/ratt-ssh-hostkeys.service" <<'EOF'
 [Unit]
 Description=Generate missing SSH host keys (RATT clone first boot)
 ConditionPathExistsGlob=!/etc/ssh/ssh_host_*_key
-Before=ssh.service sshd.service
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=ssh.service sshd.service ssh.socket sysinit.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/ssh-keygen -A
+ExecStart=/usr/local/sbin/ratt-ssh-hostkeys.sh
+RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=sysinit.target
 EOF
-mkdir -p "$R/etc/systemd/system/multi-user.target.wants"
-ln -sf ../ratt-ssh-hostkeys.service "$R/etc/systemd/system/multi-user.target.wants/ratt-ssh-hostkeys.service"
+mkdir -p "$R/etc/systemd/system/sysinit.target.wants"
+ln -sf ../ratt-ssh-hostkeys.service "$R/etc/systemd/system/sysinit.target.wants/ratt-ssh-hostkeys.service"
+rm -f "$R/etc/systemd/system/multi-user.target.wants/ratt-ssh-hostkeys.service"
+
+# Ensure fake-hwclock saves to /data instead of read-only root
+if [ -f "$R/etc/default/fake-hwclock" ]; then
+    sed -i 's|^#\?FILE=.*|FILE=/data/fake-hwclock.data|' "$R/etc/default/fake-hwclock"
+elif [ -d "$R/etc/default" ]; then
+    echo 'FILE=/data/fake-hwclock.data' > "$R/etc/default/fake-hwclock"
+fi
+
+# Ensure chrony driftfile points to /data if chrony is installed
+if [ -f "$R/etc/chrony/chrony.conf" ]; then
+    sed -i 's|^driftfile .*|driftfile /data/timesync/chrony.drift|' "$R/etc/chrony/chrony.conf"
+fi
 
 # ---------------------------------------------------------------- identity
 info "machine-id"
