@@ -99,7 +99,9 @@ if [ -f "$ENV_TXT" ]; then
         set_env_param "user_overlays" "${CURRENT_USER_OVERLAYS} ratt"
     fi
 
-    # Free ttyS0 UART by redirecting console, and keep fbcon off LCD
+    # Silence console text, enable boot logo, and keep fbcon off LCD
+    set_env_param "verbosity" "0"
+    set_env_param "bootlogo" "true"
     set_env_param "console" "none"
     set_env_param "extraargs" "console=tty1 fbcon=map:9 vt.global_cursor_default=0"
 else
@@ -421,6 +423,22 @@ EOF
     systemctl enable ratt-splash.service 2>/dev/null || true
 
     echo "  + Installed /usr/local/sbin/show-splash.sh, udev rule, and ratt-splash.service"
+
+    # Install U-Boot 320x240 boot.bmp
+    if [ -f "${SCRIPT_DIR}/gui/images/boot.bmp" ]; then
+        cp "${SCRIPT_DIR}/gui/images/boot.bmp" /boot/boot.bmp
+        echo "  + Installed RATT boot logo to /boot/boot.bmp"
+    fi
+
+    # Update Plymouth Ubuntu logos with RATT logo if Plymouth is installed
+    if [ -d /usr/share/plymouth ] && [ -f "${SCRIPT_DIR}/gui/images/plymouth_ratt.png" ]; then
+        cp "${SCRIPT_DIR}/gui/images/plymouth_ratt.png" /usr/share/plymouth/ubuntu-logo.png
+        if [ -d /usr/share/plymouth/themes/spinner ]; then
+            cp "${SCRIPT_DIR}/gui/images/plymouth_ratt.png" /usr/share/plymouth/themes/spinner/watermark.png 2>/dev/null || true
+            cp "${SCRIPT_DIR}/gui/images/plymouth_ratt.png" /usr/share/plymouth/themes/spinner/bgrt-fallback.png 2>/dev/null || true
+        fi
+        echo "  + Updated Plymouth splash logos with RATT logo"
+    fi
 
     # Test/show immediately if framebuffer already active
     /usr/local/sbin/show-splash.sh 2>/dev/null || true
