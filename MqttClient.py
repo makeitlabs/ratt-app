@@ -40,6 +40,7 @@ from PyQt5.QtCore import Qt, QThread, QWaitCondition, QMutex, QTimer, pyqtSignal
 import paho.mqtt.client as mqtt
 from Logger import Logger
 import traceback
+import ssl
 
 class MqttClient(QThread):
     TOPIC_BROADCAST_CONTROL = 'control/broadcast'
@@ -92,7 +93,8 @@ class MqttClient(QThread):
         self._base_topic = baseTopic
 
     def init_client(self, hostname='localhost', port=1883, nodeId='', reconnectTime=60,
-                    sslEnabled = False, caCertFile = '', clientCertFile = '', clientKeyFile = ''):
+                    sslEnabled = False, caCertFile = '', clientCertFile = '', clientKeyFile = '',
+                    sslInsecure = False):
 
         self._node_id = nodeId
 
@@ -112,10 +114,14 @@ class MqttClient(QThread):
                 ca_cert = caCertFile if caCertFile else None
                 cert = clientCertFile if clientCertFile else None
                 key = clientKeyFile if clientKeyFile else None
-                self.logger.info('SSL enabled, ca_cert=%s cert=%s key=%s' % (ca_cert, cert, key))
+                cert_reqs = ssl.CERT_NONE if sslInsecure else ssl.CERT_REQUIRED
+                self.logger.info('SSL enabled, ca_cert=%s cert=%s key=%s insecure=%s' % (ca_cert, cert, key, sslInsecure))
                 self._client.tls_set(ca_certs=ca_cert,
                                      certfile=cert,
-                                     keyfile=key)
+                                     keyfile=key,
+                                     cert_reqs=cert_reqs)
+                if sslInsecure:
+                    self._client.tls_insecure_set(True)
             except (IOError, OSError) as e:
                 self.logger.error('Error loading SSL certificates (%s)!  Are the paths and filenames correct in the .ini file?' % str(e))
             except Exception as e:
@@ -232,8 +238,9 @@ class MqttClient(QThread):
                     self.state = MqttClient.Connecting
                     self._client.reconnect_delay_set(min_delay=1, max_delay=30)
                     self._client.connect(self._hostname, port=self._port, keepalive=self._keepalive)
-                except:
-                    self.logger.info('could not connect, retrying in ' + str(self._reconnect_time / 1000) + ' seconds')
+                except Exception as e:
+                    self.logger.warning('could not connect to %s:%s (%s), retrying in %s seconds' %
+                                        (self._hostname, self._port, e, self._reconnect_time / 1000))
                     self.state = MqttClient.Disconnected
                     self.msleep(self._reconnect_time)
 

@@ -504,6 +504,7 @@ class RattConfig(QObject):
         self.addSection('MQTT')
         self.addConfig('MQTT', 'LogLevel', 'INFO')
         self.addConfigBool('MQTT', 'SSLEnabled', False)
+        self.addConfigBool('MQTT', 'SSLInsecure', False)
         self.addConfig('MQTT', 'CACertFile', '')
         self.addConfig('MQTT', 'ClientCertFile', '')
         self.addConfig('MQTT', 'ClientKeyFile', '')

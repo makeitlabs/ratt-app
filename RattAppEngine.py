@@ -238,7 +238,8 @@ class RattAppEngine(QQmlApplicationEngine):
                                sslEnabled=self.config.value('MQTT.SSLEnabled'),
                                caCertFile=self.config.value('MQTT.CACertFile'),
                                clientCertFile=self.config.value('MQTT.ClientCertFile'),
-                               clientKeyFile=self.config.value('MQTT.ClientKeyFile'))
+                               clientKeyFile=self.config.value('MQTT.ClientKeyFile'),
+                               sslInsecure=self.config.value('MQTT.SSLInsecure'))
 
 
     def shutdown(self):

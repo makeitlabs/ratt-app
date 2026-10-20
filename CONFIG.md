@@ -51,5 +51,31 @@ Configure simulated components or hardware logic polarities.
 - `InputActiveLow`: Comma-separated indicators for inverting inputs (1 for active low, 0 for normal logic). e.g., `1,0,0,0` will invert the `IN0` circuit only. Useful for NC E-stops or hardware with opposite default states.
 - `OutputActiveLow`: Comma-separated indicators for inverting outputs (1 for active low, 0 for normal logic). e.g., `1,0,0,0` will invert the `OUT0` circuit only.
 
-### `[Auth]` / `[HTTPS]` / `[MQTT]` / `[RFID]`
-These sections handle system integration configuration such as broker hosts, cert files, API auth settings, and hardware serial ports configurations.
+### `[Auth]`
+Authentication backend connection options.
+- `ServerHost`: Hostname of Auth Backend server (e.g. `auth.lan.makeitlabs.com`).
+- `ServerPort`: Port for Auth Backend server (default `443`).
+- `ResourceId`: Resource name configured in the Auth backend.
+- `NodeName`: Node name configured in the Auth backend for config overlays.
+- `HttpAuthUser` / `HttpAuthPassword`: API credentials for backend requests.
+
+### `[HTTPS]`
+HTTPS TLS / Certificate options.
+- `CaCertFile`: Path to CA certificate for verifying the Auth backend (e.g. `/data/certs/auth-ca.crt`). Preserves system default CAs while trusting the specified CA.
+- `ClientCertsEnabled`: Enable client certificate authentication (default `False`).
+- `ClientCertFile` / `ClientKeyFile`: Paths to client certificate and private key (only required when `ClientCertsEnabled=True`).
+
+### `[MQTT]`
+MQTT telemetry and control broker connection options.
+- `BrokerHost`: Hostname of the MQTT broker (e.g. `mqtt`).
+- `BrokerPort`: Port of the MQTT broker (e.g. `1883` for plain, `8883` for TLS).
+- `SSLEnabled`: Enable TLS encryption when connecting to broker (default `False`).
+- `SSLInsecure`: Set to `True` to skip certificate validation (e.g. for self-signed certificates when no CA cert is available).
+- `CACertFile`: Path to CA certificate for verifying the broker (e.g. `/data/certs/mqtt-ca.crt`). Note: must be the CA certificate that signed the broker's certificate, not the server's certificate itself.
+- `ClientCertFile` / `ClientKeyFile`: Paths to client certificate and private key (only required if broker enforces mTLS client certificate authentication).
+- `BaseTopic`: Base MQTT topic name (default `ratt`).
+
+### `[RFID]`
+RFID reader configuration.
+- `SerialPort`: Device path for reader serial port (default `/dev/ttyS0`).
+- `SimulatedTag`: Tag ID for testing/simulation.

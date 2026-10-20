@@ -176,7 +176,7 @@ HttpAuthPassword=secret
 
 ; (Interpolation value) ServerHost=<hostname>
 ; Hostname of Auth Backend server (may be internal or external address)
-ServerHost=auth
+ServerHost=auth.lan.makeitlabs.com
 
 ; (Interpolation value) ServerPort=<port>
 ; Port for Auth Backend server
@@ -220,17 +220,21 @@ ConfigUrl=https://%(ServerHost)s:%(ServerPort)s/%(UrlBase)sapi/v1/node/%(NodeNam
 ; Use SSL when connecting to MQTT broker
 ; SSLEnabled=True
 
-; CACertFile=<file> - default=/boot/firmware/ratt/certs/ca.crt
+; SSLInsecure=[True|False] - default=False
+; Disable SSL certificate verification (e.g. for self-signed certificates without CA cert)
+; SSLInsecure=True
+
+; CACertFile=<file> - default=
 ; SSL CA certificate file path, usually self-signed and specific to MQTT
-; CACertFile=/boot/firmware/ratt/certs/mqtt_ca.crt
+; CACertFile=/data/certs/mqtt-ca.crt
 
-; ClientCertFile=<file> - default=/boot/firmware/ratt/certs/client.crt
-; SSL Client certificate file path, usually self-signed and specific to MQTT
-; ClientCertFile=/boot/firmware/ratt/certs/mqtt_client.crt
+; ClientCertFile=<file> - default=
+; SSL Client certificate file path (only needed if broker requires client certs)
+; ClientCertFile=/data/certs/mqtt_client.crt
 
-; ClientKeyFile=<file> - default=/boot/firmware/ratt/certs/client.key
-; SSL Client private key file path, usually self-signed and specific to MQTT
-; ClientKeyFile=/boot/firmware/ratt/certs/mqtt_client.key
+; ClientKeyFile=<file> - default=
+; SSL Client private key file path (only needed if broker requires client certs)
+; ClientKeyFile=/data/certs/mqtt_client.key
 
 ; BrokerHost=<hostname>
 ; Host name of the MQTT broker
@@ -255,17 +259,17 @@ BrokerHost=mqtt
 ; Enable SSL client certificates for HTTPS transactions
 ; ClientCertsEnabled=True
 
-; CaCertFile=<file> - default=/boot/firmware/ratt/certs/ca.crt
+; CaCertFile=<file> - default=
 ; CA certificate file path
-; CaCertFile=/boot/firmware/ratt/certs/https_ca.crt
+; CaCertFile=/data/certs/auth-ca.crt
 
-; ClientCertFile=<file> - default=/boot/firmware/ratt/certs/client.crt
-; Client certificate file path
-; ClientCertFile=/boot/firmware/ratt/certs/https_client.crt
+; ClientCertFile=<file> - default=
+; Client certificate file path (only needed if client certs are enabled)
+; ClientCertFile=/data/certs/https_client.crt
 
-; ClientKeyFile=<file> - default=/boot/firmware/ratt/certs/client.key
-; Client private key file path
-; ClientKeyFile=/boot/firmware/ratt/certs/https_client.key
+; ClientKeyFile=<file> - default=
+; Client private key file path (only needed if client certs are enabled)
+; ClientKeyFile=/data/certs/https_client.key
 
 ;;;;;;;;;;;;
 [RFID]
