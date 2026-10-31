@@ -45,7 +45,7 @@ View {
     color: "#444444"
 
     function _show() {
-        sound.general2AlertAudio.play();
+        sound.enableEstopAudio.play();
         waitTimer.start();
         audioHelperTimer.start();
     }
@@ -73,8 +73,8 @@ View {
 
     Timer {
         id: audioHelperTimer
-        interval: 10000
-        repeat: false
+        interval: 15000
+        repeat: true
         running: false
         onTriggered: {
             sound.enableEstopAudio.play();
@@ -177,6 +177,7 @@ View {
           }
         }
 
+        /*
         Item {
           Layout.fillWidth: true
           Layout.preferredHeight: 16
@@ -197,5 +198,6 @@ View {
             color: "black"
           }
         }
+        */
     }
 }

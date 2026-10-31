@@ -56,6 +56,18 @@ class AudioPlayer(QtCore.QObject):
         QtCore.QObject.__init__(self)
         self.app = app
         self._proc = None
+        self._silence_proc = None
+
+    def _kill_proc(self, proc):
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=0.2)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
 
     @pyqtSlot(str)
     def play(self, fileName):
@@ -64,16 +76,22 @@ class AudioPlayer(QtCore.QObject):
         path = fileName
         if not path.startswith('/'):
             path = './' + path
-            
+
+        if 'silence.wav' in path:
+            if (self._proc and self._proc.poll() is None) or (self._silence_proc and self._silence_proc.poll() is None):
+                return
+            self._silence_proc = subprocess.Popen(['aplay', '-q', path])
+            return
+
+        self._kill_proc(self._silence_proc)
+        self._silence_proc = None
+        self._kill_proc(self._proc)
         self._proc = subprocess.Popen(['aplay', '-q', path])
 
     @pyqtSlot()
     def stop(self):
-        if self._proc and self._proc.poll() is None:
-            try:
-                self._proc.terminate()
-            except Exception:
-                pass
+        self._kill_proc(self._proc)
+        self._proc = None
 
 class RattAppEngine(QQmlApplicationEngine):
     restart = pyqtSignal()
