@@ -41,6 +41,12 @@ import sys
 import os
 import signal
 import atexit
+
+# Ensure working directory is always the application root directory
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir:
+    os.chdir(_app_dir)
+
 from PyQt5.QtGui import QGuiApplication, QFont
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QUrl, QTimer, QSocketNotifier
 from RattAppEngine import RattAppEngine

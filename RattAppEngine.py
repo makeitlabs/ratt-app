@@ -86,6 +86,8 @@ class RattAppEngine(QQmlApplicationEngine):
         # load the config
         self.config = RattConfig(inifile=args.inifile, loglevel='DEBUG')
 
+        self._systemStarted = False
+
         self.config.configChanged.connect(self.slotConfigChanged)
         self.config.configError.connect(self.slotConfigError)
 
@@ -117,6 +119,11 @@ class RattAppEngine(QQmlApplicationEngine):
         self.rootContext().setContextProperty("personality", self.personality)
 
     def __startSystem__(self):
+        if self._systemStarted:
+            self.logger.warning('__startSystem__ called but system is already started; ignoring duplicate call')
+            return
+        self._systemStarted = True
+
         # initialize the node personality and the other necessary modules
         self.audioPlayer = AudioPlayer(self)
         self.__initSystem__()
@@ -134,7 +141,7 @@ class RattAppEngine(QQmlApplicationEngine):
 
     @pyqtSlot()
     def slotConfigChanged(self):
-        if self.config.haveInitialRemoteConfig:
+        if self._systemStarted:
             self.logger.info('CONFIG CHANGED - RE-INIT')
 
             #robjs = self.rootObjects()
@@ -148,7 +155,11 @@ class RattAppEngine(QQmlApplicationEngine):
 
     @pyqtSlot()
     def slotConfigError(self):
-        self.__startSystem__()
+        if not self._systemStarted:
+            self.logger.warning('Remote config download error on startup; starting with cached/default config')
+            self.__startSystem__()
+        else:
+            self.logger.warning('Remote config download error; continuing with running config')
 
     def __initPersonality__(self):
         # dynamically import and instantiate the correct 'Personality' class, which contains the specific logic
