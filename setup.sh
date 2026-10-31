@@ -237,6 +237,7 @@ if ! mountpoint -q /data; then
     echo "  -> WARNING: /data is not a mounted partition; RATT caches/logs will live on the root filesystem."
     echo "     (Fine for dev boxes. For production, prepare the card with scripts/platform-setup.sh.)"
 fi
+rm -f "${SCRIPT_DIR}/PersonalityBase.py"
 mkdir -p /data/ratt
 
 # Install systemd service
@@ -246,6 +247,7 @@ Description=RATT Access Control Application
 ConditionPathExists=${RATT_CONF_DIR}/ratt.ini
 RequiresMountsFor=/data /boot/firmware
 After=network.target
+Conflicts=serial-getty@ttyS0.service serial-getty@serial0.service serial-getty@ttyAMA0.service
 
 [Service]
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1

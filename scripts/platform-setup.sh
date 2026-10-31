@@ -481,7 +481,7 @@ set -f   # no globbing on tokens like ds=nocloud;i=...
 NEW=""
 for tok in $(tr '\n' ' ' < "$BOOT/cmdline.txt"); do
     case "$tok" in
-        resize|init=/usr/lib/raspi-config/init_resize.sh) continue ;;
+        resize|init=/usr/lib/raspi-config/init_resize.sh|console=serial0*|console=ttyS0*|console=ttyAMA0*) continue ;;
     esac
     [[ " $NEW " == *" $tok "* ]] || NEW="$NEW $tok"     # drop duplicates
 done
@@ -743,9 +743,14 @@ fi
 
 chown -R "${RATT_UID}:${RATT_GID}" "$HOMEDIR"
 
-# ---------------------------------------------------------------- 7. no console on the LCD
-info "Masking getty@tty1"
+# ---------------------------------------------------------------- 7. no console on LCD & free RFID serial
+info "Masking getty@tty1 (keeps console off LCD)"
 ln -sf /dev/null "$ROOT/etc/systemd/system/getty@tty1.service"
+
+info "Masking serial-getty on ttyS0, ttyAMA0, serial0 (frees UART for RFID)"
+for tty in ttyS0 ttyAMA0 serial0; do
+    ln -sf /dev/null "$ROOT/etc/systemd/system/serial-getty@${tty}.service"
+done
 
 sync
 info "Done. Layout:"

@@ -416,23 +416,25 @@ CMDLINE="/boot/firmware/cmdline.txt"
 [ -f "$CMDLINE" ] || CMDLINE="/boot/cmdline.txt"
 
 if [ -f "$CMDLINE" ]; then
-    if grep -q 'fbcon=map:9' "$CMDLINE"; then
-        info "  -> fbcon=map:9 already configured in $CMDLINE; skipping"
+    set -f
+    NEW=""
+    for tok in $(tr '\n' ' ' < "$CMDLINE"); do
+        case "$tok" in
+            resize|init=/usr/lib/raspi-config/init_resize.sh|console=serial0*|console=ttyS0*|console=ttyAMA0*) continue ;;
+        esac
+        [[ " $NEW " == *" $tok "* ]] || NEW="$NEW $tok"
+    done
+    for tok in fbcon=map:9 vt.global_cursor_default=0 consoleblank=0; do
+        [[ " $NEW " == *" $tok "* ]] || NEW="$NEW $tok"
+    done
+    set +f
+    OLD_CONTENT="$(tr '\n' ' ' < "$CMDLINE" | sed 's/[[:space:]]*$//')"
+    NEW_CONTENT="${NEW# }"
+    if [ "$OLD_CONTENT" != "$NEW_CONTENT" ]; then
+        printf '%s\n' "$NEW_CONTENT" > "$CMDLINE"
+        info "  -> Updated $CMDLINE (stripped serial console, ensured fbcon=map:9 vt.global_cursor_default=0 consoleblank=0)"
     else
-        set -f
-        NEW=""
-        for tok in $(tr '\n' ' ' < "$CMDLINE"); do
-            case "$tok" in
-                resize|init=/usr/lib/raspi-config/init_resize.sh) continue ;;
-            esac
-            [[ " $NEW " == *" $tok "* ]] || NEW="$NEW $tok"
-        done
-        for tok in fbcon=map:9 vt.global_cursor_default=0 consoleblank=0; do
-            [[ " $NEW " == *" $tok "* ]] || NEW="$NEW $tok"
-        done
-        set +f
-        printf '%s\n' "${NEW# }" > "$CMDLINE"
-        info "  -> Added fbcon=map:9 vt.global_cursor_default=0 consoleblank=0 to $CMDLINE"
+        info "  -> $CMDLINE already up to date"
     fi
 else
     warn "  -> $CMDLINE not found; skipping cmdline tweaks"
@@ -611,6 +613,17 @@ else
     systemctl mask getty@tty1.service 2>/dev/null || ln -sf /dev/null /etc/systemd/system/getty@tty1.service
     info "  -> Masked getty@tty1 (keeps console off LCD display)"
 fi
+
+# Free RFID serial UART by stopping and masking serial-getty services
+for tty in ttyS0 ttyAMA0 serial0; do
+    systemctl stop "serial-getty@${tty}.service" 2>/dev/null || true
+    systemctl disable "serial-getty@${tty}.service" 2>/dev/null || true
+    systemctl mask "serial-getty@${tty}.service" 2>/dev/null || ln -sf /dev/null "/etc/systemd/system/serial-getty@${tty}.service"
+done
+info "  -> Masked serial-getty on ttyS0, ttyAMA0, serial0 (frees UART for RFID)"
+
+# Clean up any legacy misplaced files
+rm -f "${REPO_DIR}/PersonalityBase.py"
 
 echo ""
 echo "========================================================"

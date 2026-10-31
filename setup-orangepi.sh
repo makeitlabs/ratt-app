@@ -178,6 +178,7 @@ if [ ! -f "$RATT_CONF_DIR/ratt.ini" ]; then
     fi
 fi
 
+rm -f "${SCRIPT_DIR}/PersonalityBase.py"
 mkdir -p /data/ratt
 
 # Install systemd service
@@ -186,6 +187,7 @@ cat << EOF > /etc/systemd/system/ratt.service
 Description=RATT Access Control Application
 ConditionPathExists=${RATT_CONF_DIR}/ratt.ini
 After=network.target
+Conflicts=serial-getty@ttyS0.service serial-getty@serial0.service serial-getty@ttyAMA0.service
 
 [Service]
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1
