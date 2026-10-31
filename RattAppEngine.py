@@ -55,6 +55,7 @@ class AudioPlayer(QtCore.QObject):
     def __init__(self, app):
         QtCore.QObject.__init__(self)
         self.app = app
+        self._proc = None
 
     @pyqtSlot(str)
     def play(self, fileName):
@@ -64,7 +65,15 @@ class AudioPlayer(QtCore.QObject):
         if not path.startswith('/'):
             path = './' + path
             
-        subprocess.Popen(['aplay', '-q', path])
+        self._proc = subprocess.Popen(['aplay', '-q', path])
+
+    @pyqtSlot()
+    def stop(self):
+        if self._proc and self._proc.poll() is None:
+            try:
+                self._proc.terminate()
+            except Exception:
+                pass
 
 class RattAppEngine(QQmlApplicationEngine):
     restart = pyqtSignal()

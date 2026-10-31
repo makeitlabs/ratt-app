@@ -67,6 +67,10 @@ Item {
         audioPlayer.play(path);
     }
 
+    function stopSfx() {
+        audioPlayer.stop();
+    }
+
     Timer {
         id: silenceTimer
         interval: 5000 // Approximate length of silence.wav (5s)
@@ -85,81 +89,101 @@ Item {
     QtObject {
         id: keyAudio
         function play() { playSfx(config.Sound_KeyPress) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: generalAlertAudio
         function play() { playSfx(config.Sound_GeneralAlert) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: general2AlertAudio
         function play() { playSfx(config.Sound_General2Alert) }
+        function stop() { stopSfx() }
     }        
     QtObject {
         id: general3AlertAudio
         function play() { playSfx(config.Sound_General3Alert) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: general4AlertAudio
         function play() { playSfx(config.Sound_General4Alert) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: rfidSuccessAudio
         function play() { playSfx(config.Sound_RFIDSuccess) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: rfidFailureAudio
         function play() { playSfx(config.Sound_RFIDFailure) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: rfidErrorAudio
         function play() { playSfx(config.Sound_RFIDError) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: safetyFailedAudio
         function play() { playSfx(config.Sound_SafetyFailed) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: enableAudio
         function play() { playSfx(config.Sound_Enable) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: disableAudio
         function play() { playSfx(config.Sound_Disable) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: timeoutWarningAudio
         function play() { playSfx(config.Sound_TimeoutWarning) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: reportSuccessAudio
         function play() { playSfx(config.Sound_ReportSuccess) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: liftInstructionsAudio
         function play() { playSfx(config.Sound_LiftInstructions) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: liftCorrectAudio
         function play() { playSfx(config.Sound_LiftCorrect) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: liftIncorrectAudio
         function play() { playSfx(config.Sound_LiftIncorrect) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: homingInstructionsAudio
         function play() { playSfx(config.Sound_HomingInstructions) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: homingWarningAudio
         function play() { playSfx(config.Sound_HomingWarning) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: homingOverrideAudio
         function play() { playSfx(config.Sound_HomingOverride) }
+        function stop() { stopSfx() }
     }
     QtObject {
         id: enableEstopAudio
         function play() { playSfx(config.Sound_EnableEstop) }
+        function stop() { stopSfx() }
     }
 }
