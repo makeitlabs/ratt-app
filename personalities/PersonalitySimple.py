@@ -429,7 +429,7 @@ class Personality(PersonalityBase):
 
     # determine the next state after access is granted, based on enabled checks
     def _nextStateAfterAccess(self):
-        if self._monitorEstop:
+        if self._monitorEstop and not self.toolEstopEnabled():
             return self.STATE_WAIT_ESTOP_ACTIVE
         elif self._passiveSafetyCheck:
             return self.STATE_PASSIVE_SAFETY_CHECK
@@ -446,17 +446,18 @@ class Personality(PersonalityBase):
         if self.phENTER:
             self.enableTool()
             self.pin_led1.set(HIGH)
+            self.wakeOnTimer(enabled=True, interval=250, singleShot=False)
             return self.goActive()
 
         elif self.phACTIVE:
             if self.toolEstopEnabled():
                 if self._passiveSafetyCheck:
-                    return self.goto(self.STATE_PASSIVE_SAFETY_CHECK)
+                    return self.exitAndGoto(self.STATE_PASSIVE_SAFETY_CHECK)
                 elif self._performSafetyCheck:
-                    return self.goto(self.STATE_SAFETY_CHECK)
+                    return self.exitAndGoto(self.STATE_SAFETY_CHECK)
                 else:
                     self.enableTool()
-                    return self.goto(self.STATE_TOOL_ENABLED_INACTIVE)
+                    return self.exitAndGoto(self.STATE_TOOL_ENABLED_INACTIVE)
 
             if self.wakereason == self.REASON_UI and self.uievent == 'WaitEstopTimeout':
                 self.disableTool()

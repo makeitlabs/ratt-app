@@ -74,7 +74,11 @@ ApplicationWindow {
         // switch to the view if not already there
         function switchTo(newItem) {
             if (stack.currentItem !== newItem) {
-                stack.currentItem.hide();
+                try {
+                    stack.currentItem.hide();
+                } catch (e) {
+                    console.error("Error hiding current view:", e);
+                }
                 stack.replace(newItem);
             }
         }
