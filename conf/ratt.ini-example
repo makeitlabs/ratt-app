@@ -80,6 +80,10 @@ AdminTimeoutSeconds=60
 ; Audibly warn about impending timeout with this many seconds remaining
 TimeoutWarningSeconds=15
 
+; AccessDeniedTimeoutMs=<milliseconds> - default=2500
+; Duration to display Access Denied before returning to idle badge scan
+; AccessDeniedTimeoutMs=2500
+
 ; ActivityHoldoffSeconds=<seconds> - default=0
 ; Holdoff / dropout delay for pulsed or AC current sensors before declaring the tool inactive (0=disabled)
 ; ActivityHoldoffSeconds=5.0

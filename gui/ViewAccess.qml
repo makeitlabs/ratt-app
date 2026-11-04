@@ -50,18 +50,22 @@ View {
     property string failureReason: ""
 
     function _show() {
-
         valid = activeMemberRecord.valid;
         allowed = activeMemberRecord.allowed;
         warningText = activeMemberRecord.warningText;
+
+        status.keyEscapeActive = true;
+        status.keyReturnActive = true;
+
+        var deniedTimeout = (typeof config !== "undefined" && config.Personality_AccessDeniedTimeoutMs) ? config.Personality_AccessDeniedTimeoutMs : 2500;
 
         var curState = personality.currentState;
         if (curState.startsWith("NotPoweredDenied")) {
           allowed = false;
           warningText = "Tool is not powered.  Please turn on the tool before scanning your RFID tag."
           scrollReason = false;
-          showTimer.interval = 1500;
-          delayTimer.start();
+          showTimer.interval = deniedTimeout;
+          showTimer.start();
           sound.rfidFailureAudio.play();
         } else if (valid && allowed) {
           // valid and allowed, only briefly show the allowed screen
@@ -69,20 +73,36 @@ View {
           showTimer.start();
           sound.rfidSuccessAudio.play();
         } else if (valid && !allowed) {
-          // valid but denied, pause and then run the scrolling animation for the reason text
+          // valid but denied, show for configured period before returning to idle
           scrollReason = false;
-          delayTimer.start();
-          showTimer.interval = 1500;
+          showTimer.interval = deniedTimeout;
+          showTimer.start();
           sound.rfidFailureAudio.play();
         } else {
           // RFID error, show it for a medium time period
-          showTimer.interval = 2500;
+          showTimer.interval = deniedTimeout;
           showTimer.start();
           sound.rfidErrorAudio.play();
         }
     }
 
+    function _hide() {
+        showTimer.stop();
+        delayTimer.stop();
+        scrollReason = false;
+        status.keyEscapeActive = false;
+        status.keyReturnActive = false;
+    }
+
+    function keyReturn(pressed) { if (pressed) done(); return true; }
+    function keyDown(pressed) { if (pressed) done(); return true; }
+    function keyUp(pressed) { if (pressed) done(); return true; }
+    function keyEscape(pressed) { if (pressed) done(); return true; }
+
     function done() {
+        showTimer.stop();
+        delayTimer.stop();
+        scrollReason = false;
         appWindow.uiEvent('AccessDone');
     }
 
@@ -117,6 +137,11 @@ View {
         anchors.fill: parent
         color: allowed ? "#009900" : "#990000"
         visible: shown
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: done()
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -245,15 +270,11 @@ View {
                     loops: 1
                     running: scrollReason
                     PropertyAnimation {
-                        duration: 5000
+                        duration: 2000
                         from: 0
-                        to: sv.flickableItem.contentHeight - sv.height
+                        to: Math.max(0, sv.flickableItem.contentHeight - sv.height)
                         easing.type: Easing.InOutQuad
                         easing.period: 100
-                    }
-
-                    onStopped: {
-                        showTimer.start();
                     }
                 }
             }
